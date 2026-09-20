@@ -127,11 +127,15 @@ func _workshop_tasks_done() -> bool:
 var _ona_follow: bool = false
 var _ona_last_anim: String = ""
 var _last_player_pos: Vector3 = Vector3.ZERO
+var _cached_player: CharacterBody3D = null
+var _cached_ona: CharacterBody3D = null
 
 func _process(delta: float) -> void:
 	if not has_node("StoryPointing2"):
 		return
-	var ona := find_child("Ona", true, false) as CharacterBody3D
+	if _cached_ona == null or not is_instance_valid(_cached_ona):
+		_cached_ona = find_child("Ona", true, false) as CharacterBody3D
+	var ona := _cached_ona
 	if ona == null:
 		return
 	# Di dalam ruangan misi: Ona diam di depan pintu
@@ -144,7 +148,9 @@ func _process(delta: float) -> void:
 			_ona_follow = true
 		else:
 			return
-	var player := find_child("Player", true, false) as CharacterBody3D
+	if _cached_player == null or not is_instance_valid(_cached_player):
+		_cached_player = find_child("Player", true, false) as CharacterBody3D
+	var player := _cached_player
 	if player == null:
 		return
 	if StoryManager and StoryManager.dialogue_box and StoryManager.dialogue_box.visible:

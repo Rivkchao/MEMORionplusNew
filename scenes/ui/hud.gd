@@ -234,12 +234,15 @@ var _idle_time: float = 0.0
 var _last_player_pos: Vector3 = Vector3.ZERO
 var _has_last_pos: bool = false
 var _reminder_pending: bool = false
+var _cached_player: Node = null
 
 func _process(delta: float) -> void:
 	# Reminder Ona jika pemain diam terlalu lama saat puzzle
 	if not _gameplay_ui_visible:
 		return
-	var player = get_tree().get_first_node_in_group("player")
+	if _cached_player == null or not is_instance_valid(_cached_player):
+		_cached_player = get_tree().get_first_node_in_group("player")
+	var player = _cached_player
 	if player == null:
 		return
 	var pos: Vector3 = player.global_position

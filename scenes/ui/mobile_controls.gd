@@ -30,6 +30,9 @@ var _camera_touches: Dictionary = {} # touch_id -> Vector2 pos
 var _prev_pinch_dist: float = 0.0
 
 # State Tombol & Player
+const ICON_WALK: Texture2D = preload("res://Fonts/Walk.png")
+const ICON_SPRINT: Texture2D = preload("res://Fonts/Sprint.png")
+
 var is_sprint_toggled: bool = false
 var _player: Node3D = null
 var _camera_rig: Node3D = null
@@ -51,8 +54,11 @@ func _ready() -> void:
 	btn_jump.button_down.connect(_on_jump_down)
 	btn_jump.button_up.connect(_on_jump_up)
 	
+	btn_sprint.icon = ICON_WALK
+	btn_sprint.text = ""
 	btn_sprint.pressed.connect(_on_sprint_pressed)
 	
+	btn_interact.text = ""
 	btn_interact.button_down.connect(_on_interact_down)
 	btn_interact.button_up.connect(_on_interact_up)
 	
@@ -149,7 +155,6 @@ func _update_ui_state(delta: float) -> void:
 				btn_drop.scale = Vector2(0.5, 0.5)
 				var tween = create_tween()
 				tween.tween_property(btn_drop, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-			btn_interact.text = "✦\nPASANG"
 			btn_interact.modulate = Color(0.4, 1.0, 0.7, 1.0)
 			return
 
@@ -173,7 +178,6 @@ func _update_ui_state(delta: float) -> void:
 					var p_scale = 1.0 + sin(_pulse_time) * 0.05
 					btn_interact.scale = Vector2(p_scale, p_scale)
 					btn_interact.modulate = Color(1.0, 0.85, 0.3, 1.0)
-					btn_interact.text = "✦\nTARUH"
 					return
 				elif unpack_mgr.has_method("get_nearest_item_distance") and unpack_mgr.get_nearest_item_distance() <= unpack_mgr.interact_distance:
 					btn_drop.visible = false
@@ -181,7 +185,6 @@ func _update_ui_state(delta: float) -> void:
 					var p_scale = 1.0 + sin(_pulse_time) * 0.05
 					btn_interact.scale = Vector2(p_scale, p_scale)
 					btn_interact.modulate = Color(0.4, 1.0, 0.7, 1.0)
-					btn_interact.text = "✦\nAMBIL"
 					return
 
 			# 3. Cek tuas (Lever)
@@ -196,7 +199,6 @@ func _update_ui_state(delta: float) -> void:
 				var p_scale = 1.0 + sin(_pulse_time) * 0.05
 				btn_interact.scale = Vector2(p_scale, p_scale)
 				btn_interact.modulate = Color(1.0, 0.6, 0.2, 1.0)
-				btn_interact.text = "✦\nTAHAN"
 				return
 
 			# 4. Cek pintu interior R1
@@ -211,7 +213,6 @@ func _update_ui_state(delta: float) -> void:
 				var p_scale = 1.0 + sin(_pulse_time) * 0.05
 				btn_interact.scale = Vector2(p_scale, p_scale)
 				btn_interact.modulate = Color(0.4, 0.9, 1.0, 1.0)
-				btn_interact.text = "✦\nPINDAH"
 				return
 
 		# 5. Objek interaktif umum (Interactable)
@@ -221,14 +222,9 @@ func _update_ui_state(delta: float) -> void:
 			var pulse_scale = 1.0 + sin(_pulse_time) * 0.05
 			btn_interact.scale = Vector2(pulse_scale, pulse_scale)
 			btn_interact.modulate = Color(0.4, 1.0, 0.7, 1.0)
-			
-			if _player.current_interactable.has_method("get_label"):
-				var lbl: String = _player.current_interactable.get_label()
-				btn_interact.text = "✦\n" + (lbl if lbl.length() <= 8 else "AKSI")
 		else:
 			btn_interact.scale = Vector2.ONE
 			btn_interact.modulate = Color(1.0, 1.0, 1.0, 0.92)
-			btn_interact.text = "✦\nAKSI"
 
 func _is_ui_blocking() -> bool:
 	if StoryManager != null:
@@ -399,11 +395,11 @@ func _on_jump_up() -> void:
 func _on_sprint_pressed() -> void:
 	is_sprint_toggled = not is_sprint_toggled
 	if is_sprint_toggled:
-		btn_sprint.text = "⚡\nLARI ON"
+		btn_sprint.icon = ICON_SPRINT
 		btn_sprint.modulate = Color(1.0, 0.9, 0.3, 1.0)
 		Input.action_press("sprint")
 	else:
-		btn_sprint.text = "⚡\nLARI"
+		btn_sprint.icon = ICON_WALK
 		btn_sprint.modulate = Color(1.0, 1.0, 1.0, 0.9)
 		Input.action_release("sprint")
 

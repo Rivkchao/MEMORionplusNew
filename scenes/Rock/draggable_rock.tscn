@@ -53,8 +53,10 @@ void fragment() {
 
 	// Emission: Enabled
 	vec3 emission_tex = texture(texture_emission, base_uv).rgb;
-	// Emission Operator: Add
-	EMISSION = ALBEDO * glow_color.rgb * night_glow_strength;
+	// Pendaran cahaya magis di malam hari dengan fresnel rim glow
+	float fresnel = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.5);
+	vec3 rock_glow = glow_color.rgb * (ALBEDO * 0.5 + vec3(0.5) + fresnel * 0.8) * night_glow_strength;
+	EMISSION = rock_glow;
 }
 "
 
@@ -66,7 +68,7 @@ shader_parameter/albedo = Color(0.9, 0.758, 1.61, 1)
 shader_parameter/texture_albedo = ExtResource("1_td71m")
 shader_parameter/albedo_texture_size = Vector2i(2048, 2048)
 shader_parameter/point_size = 1.0
-shader_parameter/glow_color = Color(0.2, 0.6, 1, 1)
+shader_parameter/glow_color = Color(0.2509804, 0.7490196, 1, 0.57254905)
 shader_parameter/night_glow_strength = 0.0
 shader_parameter/roughness = 1.0
 shader_parameter/metallic_texture_channel = Vector4(1, 0, 0, 0)
@@ -121,6 +123,7 @@ script = ExtResource("1_xnnw7")
 
 [node name="Rock_Medium_2" type="MeshInstance3D" parent="." unique_id=654269603 groups=["glowing_rock"]]
 transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+material_override = SubResource("ShaderMaterial_ds25n")
 mesh = SubResource("ArrayMesh_3u87q")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=279074386]

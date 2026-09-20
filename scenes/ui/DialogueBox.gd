@@ -23,10 +23,23 @@ var speaker_name: String = ""
 var _type_tween: Tween
 
 @export var char_per_second: float = 35.0 # Kecepatan ketik (35 huruf per detik)
+@export var avatar_margin_y: float = 70.0 # Margin offset Y agar avatar turun (misal setengah badan)
 
 var magic_time: float = 0.0
 signal dialogue_finished
 signal dialogue_started
+
+func _set_avatar(tex: Texture2D) -> void:
+	if tex == null:
+		avatar.texture = null
+		return
+	if avatar_margin_y != 0.0:
+		var atlas = AtlasTexture.new()
+		atlas.atlas = tex
+		atlas.margin = Rect2(0, avatar_margin_y, 0, 0)
+		avatar.texture = atlas
+	else:
+		avatar.texture = tex
 
 func _ready() -> void:
 	hide()
@@ -69,7 +82,7 @@ func start(dialogue_lines: Array[String], npc_name: String = "", avatar_texture:
 	current_line = 0
 	name_label.text = speaker_name
 	if avatar_texture:
-		avatar.texture = avatar_texture
+		_set_avatar(avatar_texture)
 	continue_label.hide()
 	show()
 	_show_line()
@@ -98,14 +111,14 @@ func _show_line() -> void:
 		display_text = raw_text.substr(4).strip_edges()
 		name_label.modulate = Color(0.85, 0.55, 1.0, 1.0)
 		if avatar_ona:
-			avatar.texture = avatar_ona
+			_set_avatar(avatar_ona)
 		avatar.visible = true
 	elif raw_text.begins_with("Rion:"):
 		current_speaker = "Rion"
 		display_text = raw_text.substr(5).strip_edges()
 		name_label.modulate = Color(0.4, 0.85, 1.0, 1.0)
 		if avatar_rion:
-			avatar.texture = avatar_rion
+			_set_avatar(avatar_rion)
 		avatar.visible = true
 	elif raw_text.begins_with("Rallux:") or raw_text.begins_with("Rallux (") or raw_text.begins_with("Rallux:"):
 		current_speaker = "Rallux"
@@ -116,7 +129,7 @@ func _show_line() -> void:
 			display_text = raw_text.substr(6).strip_edges()
 		name_label.modulate = Color(1.0, 0.65, 0.2, 1.0)
 		if avatar_rallux:
-			avatar.texture = avatar_rallux
+			_set_avatar(avatar_rallux)
 		avatar.visible = true
 	elif raw_text == "TANG! KLATAK!" or raw_text.begins_with("TANG!") or raw_text.begins_with("*Suara"):
 		current_speaker = "Efek Suara"

@@ -55,9 +55,31 @@ func _ready() -> void:
 	_setup_audio_buses()
 	_setup_brightness_overlay()
 	load_settings()
+	_apply_platform_performance()
 	
 	if ResourceLoader.exists("res://scenes/ui/SettingsMenu.tscn"):
 		settings_menu_scene = load("res://scenes/ui/SettingsMenu.tscn")
+
+## Profil performa otomatis untuk web/mobile supaya tidak berat.
+func _apply_platform_performance() -> void:
+	var mobile_or_web: bool = OS.has_feature("mobile") or OS.has_feature("web")
+	if not mobile_or_web:
+		return
+
+	# Batasi FPS & laju fisika (hemat CPU/GPU & baterai)
+	Engine.max_fps = 30
+	Engine.physics_ticks_per_second = 30
+
+	var win := get_tree().root
+	if win:
+		# Render 3D internal lebih rendah (dynamic resolution) + matikan MSAA
+		win.msaa_3d = Viewport.MSAA_DISABLED
+
+	# Bayangan lebih ringan (biaya terbesar di Compatibility/web/mobile)
+	RenderingServer.directional_shadow_atlas_set_size(512, true)
+	for light in get_tree().root.find_children("*", "DirectionalLight3D", true, false):
+		if light is DirectionalLight3D:
+			light.shadow_enabled = false
 
 func _setup_audio_buses() -> void:
 	_bus_master = AudioServer.get_bus_index("Master")

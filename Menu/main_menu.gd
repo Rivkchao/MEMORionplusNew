@@ -165,4 +165,3 @@ func _on_keluar() -> void:
 
 func _on_instagram() -> void:
 	OS.shell_open(INSTAGRAM_URL)
-

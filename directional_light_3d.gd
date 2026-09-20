@@ -16,10 +16,10 @@ extends DirectionalLight3D
 @export var terrain_node: Node3D
 @export var max_path_glow: float = 1.5
 @export var max_grass_glow: float = 1.2
-@export var max_grass_mesh_glow: float = 0.45
+@export var max_grass_mesh_glow: float = 1.2
 
 @export_group("Rock Glow")
-@export var max_rock_glow: float = 0.4
+@export var max_rock_glow: float = 2.0
 
 @export_group("Player Night Light")
 @export var player_light: OmniLight3D
@@ -38,6 +38,14 @@ func _ready() -> void:
 	if terrain_node != null:
 		_terrain_material = terrain_node.get("material")
 
+	if _terrain_material == null:
+		var nav_terrains = get_tree().get_nodes_in_group("terrain_navigation")
+		for tn in nav_terrains:
+			var mat = tn.get("material")
+			if mat != null:
+				_terrain_material = mat
+				break
+
 	var rumput_scene = load("res://Distribute/Rumput.tscn") as PackedScene
 	if rumput_scene:
 		var state = rumput_scene.get_state()
@@ -49,12 +57,29 @@ func _ready() -> void:
 			if _grass_material != null:
 				break
 
+	_collect_rock_materials()
+
+func _collect_rock_materials() -> void:
 	var rocks = get_tree().get_nodes_in_group("glowing_rock")
 	for r in rocks:
 		if r is MeshInstance3D:
 			var mat = r.get_active_material(0) as ShaderMaterial
-			if mat:
+			if mat and not _rock_materials.has(mat):
 				_rock_materials.append(mat)
+
+	if _rock_materials.is_empty():
+		var rock_scene = load("res://scenes/Rock/draggable_rock.tscn") as PackedScene
+		if rock_scene:
+			var state = rock_scene.get_state()
+			for i in range(state.get_node_count()):
+				for p_idx in range(state.get_node_property_count(i)):
+					if state.get_node_property_name(i, p_idx) == "material_override":
+						var mat = state.get_node_property_value(i, p_idx) as ShaderMaterial
+						if mat and not _rock_materials.has(mat):
+							_rock_materials.append(mat)
+						break
+				if not _rock_materials.is_empty():
+					break
 
 var _update_timer: float = 0.0
 
@@ -145,33 +170,31 @@ func _update_terrain_glow(t: float) -> void:
 	if _terrain_material == null and _grass_material == null:
 		return
 
-	var path_glow: float = 0.0
-	var grass_glow: float = 0.0
-	var grass_mesh_glow: float = 0.0
-
-	if t >= 0.42 and t < 0.50:
-		var factor: float = (t - 0.42) / 0.08
-		path_glow = lerpf(0.0, max_path_glow, factor)
-		grass_glow = lerpf(0.0, max_grass_glow, factor)
-		grass_mesh_glow = lerpf(0.0, max_grass_mesh_glow, factor)
-	elif t >= 0.50 and t < 0.95:
-		path_glow = max_path_glow
-		grass_glow = max_grass_glow
-		grass_mesh_glow = max_grass_mesh_glow
+	var glow_factor: float = 0.0
+	if t >= 0.30 and t < 0.40:
+		# Sore hari -> perlahan menyala
+		glow_factor = (t - 0.30) / 0.10
+	elif t >= 0.40 and t < 0.95:
+		# Sore sampai malam & fajar -> menyala stabil penuh
+		glow_factor = 1.0
 	elif t >= 0.95:
-		var factor: float = (t - 0.95) / 0.05
-		path_glow = lerpf(max_path_glow, 0.0, factor)
-		grass_glow = lerpf(max_grass_glow, 0.0, factor)
-		grass_mesh_glow = lerpf(max_grass_mesh_glow, 0.0, factor)
+		# Menjelang pagi -> perlahan padam
+		glow_factor = lerpf(1.0, 0.0, (t - 0.95) / 0.05)
 	else:
-		path_glow = 0.0
-		grass_glow = 0.0
-		grass_mesh_glow = 0.0
+		# Siang hari -> mati
+		glow_factor = 0.0
+
+	var path_glow: float = max_path_glow * glow_factor
+	var grass_glow: float = max_grass_glow * glow_factor
+	var grass_mesh_glow: float = max_grass_mesh_glow * glow_factor
 
 	if _terrain_material != null:
 		if _terrain_material.has_method("set_shader_param"):
 			_terrain_material.set_shader_param("path_glow_intensity", path_glow)
 			_terrain_material.set_shader_param("grass_glow_intensity", grass_glow)
+		elif _terrain_material.has_method("set_shader_parameter"):
+			_terrain_material.set_shader_parameter("path_glow_intensity", path_glow)
+			_terrain_material.set_shader_parameter("grass_glow_intensity", grass_glow)
 		elif _terrain_material is ShaderMaterial:
 			_terrain_material.set_shader_parameter("path_glow_intensity", path_glow)
 			_terrain_material.set_shader_parameter("grass_glow_intensity", grass_glow)
@@ -181,16 +204,23 @@ func _update_terrain_glow(t: float) -> void:
 
 func _update_rock_glow(t: float) -> void:
 	if _rock_materials.is_empty():
+		_collect_rock_materials()
+	if _rock_materials.is_empty():
 		return
 
 	var glow: float = 0.0
-	if t >= 0.42 and t < 0.50:
-		glow = lerpf(0.0, max_rock_glow, (t - 0.42) / 0.08)
-	elif t >= 0.50 and t < 0.95:
+	# Nyala dari sore (t >= 0.30) sampai ketemu pagi (t < 0.95)
+	if t >= 0.30 and t < 0.40:
+		# Mulai sore hari -> perlahan menyala
+		glow = lerpf(0.0, max_rock_glow, (t - 0.30) / 0.10)
+	elif t >= 0.40 and t < 0.95:
+		# Sepanjang sore sampai malam & fajar -> menyala stabil
 		glow = max_rock_glow
 	elif t >= 0.95:
+		# Menjelang pagi -> perlahan padam
 		glow = lerpf(max_rock_glow, 0.0, (t - 0.95) / 0.05)
 	else:
+		# Siang hari -> mati
 		glow = 0.0
 
 	for mat in _rock_materials:

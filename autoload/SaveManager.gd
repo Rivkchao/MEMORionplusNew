@@ -100,22 +100,22 @@ func save() -> void:
 		return
 	
 	# Update save_data
+	var player_pos = GameManager.spawn_override_position
+	var cur_scene = "res://LEV1.tscn"
+	if get_tree() and get_tree().current_scene and get_tree().current_scene.scene_file_path != "":
+		cur_scene = get_tree().current_scene.scene_file_path
 	data["save_data"] = {
 		"player_position": {
-			"x": GameManager.spawn_point_override.x,
-			"y": GameManager.spawn_point_override.y,
-			"z": GameManager.spawn_point_override.z
+			"x": player_pos.x,
+			"y": player_pos.y,
+			"z": player_pos.z
 		},
-		"scene": get_tree().current_scene.scene_file_path,
+		"scene": cur_scene,
 		"objective": {
-			"text": GameManager.objective_text,
 			"current": GameManager.objective_current,
 			"total": GameManager.objective_total,
 			"item_name": GameManager.objective_item
 		},
-		"completed_puzzles": GameManager.completed_puzzles,
-		"inventory": GameManager.inventory,
-		"dialogue_history": GameManager.dialogue_history,
 		"last_saved": Time.get_datetime_string_from_system()
 	}
 	
@@ -135,22 +135,14 @@ func restore(save_data: Dictionary) -> void:
 		return
 	
 	var pos = save_data.get("player_position", {})
-	if not pos.is_empty():
+	if not pos.is_empty() and pos.has("x") and pos.has("y") and pos.has("z"):
 		GameManager.set_spawn_override(Vector3(pos["x"], pos["y"], pos["z"]))
 	
 	var obj = save_data.get("objective", {})
 	if not obj.is_empty():
-		GameManager.objective_text = obj.get("text", "")
 		GameManager.objective_current = obj.get("current", 0)
 		GameManager.objective_total = obj.get("total", 0)
 		GameManager.objective_item = obj.get("item_name", "bintang")
-	
-	GameManager.completed_puzzles = save_data.get("completed_puzzles", [])
-	GameManager.inventory = save_data.get("inventory", [])
-	GameManager.dialogue_history = save_data.get("dialogue_history", [])
-	
-	var scene = save_data.get("scene", "res://scenes/main/Main.tscn")
-	LoadingScreen.load_scene(scene)
 
 func has_any_save() -> bool:
 	var dir = DirAccess.open(SAVE_DIR)

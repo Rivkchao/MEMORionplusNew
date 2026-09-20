@@ -1,9 +1,9 @@
-[gd_scene load_steps=6 format=3 uid="uid://brjwd8h3yb3wt"]
+[gd_scene format=3 uid="uid://brjwd8h3yb3wt"]
 
 [ext_resource type="Script" uid="uid://pi42ohs0vvma" path="res://scenes/ui/hud.gd" id="1_atyv1"]
 [ext_resource type="PackedScene" uid="uid://cw5rnrg6cp2r8" path="res://scenes/ui/DialogueBox.tscn" id="1_kw0id"]
 [ext_resource type="PackedScene" uid="uid://co6qtf6b6hrdm" path="res://scenes/Terminal/wire_puzzle.tscn" id="2_ig75s"]
-[ext_resource type="PackedScene" path="res://scenes/ui/MobileControls.tscn" id="3_mobile"]
+[ext_resource type="PackedScene" uid="uid://ddapyrr5evfnt" path="res://scenes/ui/MobileControls.tscn" id="3_mobile"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud_settings"]
 bg_color = Color(0.12, 0.08, 0.24, 0.75)
@@ -69,7 +69,7 @@ layout_mode = 2
 
 [node name="WirePuzzle" parent="." unique_id=746694349 instance=ExtResource("2_ig75s")]
 
-[node name="SettingsBtn" type="Button" parent="."]
+[node name="SettingsBtn" type="Button" parent="." unique_id=634873662]
 custom_minimum_size = Vector2(64, 64)
 anchors_preset = 1
 anchor_left = 1.0
@@ -82,9 +82,9 @@ grow_horizontal = 0
 pivot_offset = Vector2(32, 32)
 mouse_default_cursor_shape = 2
 theme_override_font_sizes/font_size = 28
-theme_override_styles/hover = SubResource("StyleBoxFlat_hud_settings")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_hud_settings_pressed")
 theme_override_styles/normal = SubResource("StyleBoxFlat_hud_settings")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_hud_settings_pressed")
+theme_override_styles/hover = SubResource("StyleBoxFlat_hud_settings")
 text = "⚙"
 
-[node name="MobileControls" parent="." instance=ExtResource("3_mobile")]
+[node name="MobileControls" parent="." unique_id=594178310 instance=ExtResource("3_mobile")]

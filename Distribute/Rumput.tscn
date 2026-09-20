@@ -10,7 +10,7 @@ shader_parameter/grass_color = Color(0.55232596, 0, 0.80317783, 1)
 shader_parameter/texture_albedo = ExtResource("3_v7ik4")
 shader_parameter/wind_speed = 1.5
 shader_parameter/wind_strength = 0.25
-shader_parameter/emission_color = Color(0.071880065, 0.044372182, 0.27818906, 1)
+shader_parameter/emission_color = Color(0.003921569, 0, 0.011764706, 0.14901961)
 shader_parameter/emission_strength = 0.0
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5vhuk"]
