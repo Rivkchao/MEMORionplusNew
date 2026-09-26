@@ -23,6 +23,7 @@ var _touch_holding: bool = false
 
 # Timer interval agar Output tidak spam setiap frame
 var debug_timer: float = 0.0
+var _pull_sound_timer: float = 0.0
 
 func is_player_near() -> bool:
 	return is_near and not completed
@@ -153,6 +154,14 @@ func _process(delta: float) -> void:
 		progress += delta / hold_time
 		progress = clamp(progress, 0.0, 1.0)
 
+		# SFX ratchet tarikan tuas dengan pitch naik seiring progress
+		_pull_sound_timer += delta
+		if _pull_sound_timer >= 0.22 and progress < 1.0:
+			_pull_sound_timer = 0.0
+			if AudioManager:
+				var pitch := lerp(0.85, 1.35, progress)
+				AudioManager.play_lever_ratchet(pitch, -4.0)
+
 		if progress_label:
 			progress_label.visible = true
 			progress_label.text = str(int(progress * 100.0)) + "%"
@@ -165,7 +174,10 @@ func _process(delta: float) -> void:
 	else:
 		if holding:
 			print_rich("[color=orange][LEVER][/color] Tombol dilepas sebelum 100%, kembali turun.")
+			if AudioManager:
+				AudioManager.play_lever_release(-6.0)
 		holding = false
+		_pull_sound_timer = 0.0
 		if progress > 0.0:
 			progress = move_toward(progress, 0.0, delta * 2.0)
 			if lever_handle:
@@ -183,6 +195,9 @@ func complete_lever() -> void:
 	var lever_id := get_parent().name + "_" + name
 	GameManager.solved_levers[lever_id] = true
 	print_rich("[color=green][LEVER SELESAI][/color] 100%% tercapai! Menyalakan lampu...")
+
+	if AudioManager:
+		AudioManager.play_lever_complete(1.0)
 
 	if progress_label:
 		progress_label.text = "100%"

@@ -212,6 +212,16 @@ const PUZZLE_TONES: Array[AudioStream] = [
 	preload("res://assets/audio/sfx/SCI-FI_UI_SFX_PACK/Tone3/Basic Tones/Tone3E.wav")
 ]
 
+# Specific Level SFX Preloads
+const SFX_ROCKET_FALL = preload("res://assets/audio/sfx/SCI-FI_UI_SFX_PACK/FX Sounds/Air_FX.wav")
+const SFX_ROCKET_CRASH = preload("res://assets/audio/sfx/SCI-FI_UI_SFX_PACK/Impacts/Impact_2.wav")
+const SFX_FLOWER_COLLECT = preload("res://assets/audio/sfx/SCI-FI_UI_SFX_PACK/Rings/Ring_Pitched_Up.wav")
+const SFX_FLOWER_COLLECT_SHIMMER = preload("res://assets/audio/sfx/SCI-FI_UI_SFX_PACK/Rings/Reverse_Ring_2_High.wav")
+const SFX_WARNING_BEEP = preload("res://assets/audio/sfx/SCI-FI_UI_SFX_PACK/Tone3/Tritone/Tone3A_TritoneDown.wav")
+const SFX_LEVER_RATCHET = preload("res://assets/audio/sfx/SCI-FI_UI_SFX_PACK/Clicks/Click_Stutter.wav")
+const SFX_LEVER_ENGAGE = preload("res://assets/audio/sfx/SCI-FI_UI_SFX_PACK/Click Combos/Click_Combo_2.wav")
+const SFX_LEVER_RELEASE = preload("res://assets/audio/sfx/SCI-FI_UI_SFX_PACK/Clicks/Click_Low.wav")
+
 ## Memutar sound effect 2D global non-spatial (UI / Sound efek umum).
 func play_sfx(stream: AudioStream, volume_db: float = 0.0, pitch_scale: float = 1.0) -> void:
 	if stream == null:
@@ -252,6 +262,31 @@ func play_dialogue_blip(volume_db: float = -8.0, pitch_scale: float = 1.1) -> vo
 func play_item_pickup(volume_db: float = -2.0, pitch_scale: float = 1.0) -> void:
 	play_sfx(SFX_ITEM_PICKUP, volume_db, pitch_scale)
 
+func play_flower_collect(volume_db: float = 0.0) -> void:
+	var pitch = randf_range(1.05, 1.25)
+	play_sfx(SFX_FLOWER_COLLECT, volume_db, pitch)
+	play_sfx(SFX_FLOWER_COLLECT_SHIMMER, volume_db - 4.0, pitch * 1.1)
+
+func play_capsule_fall(volume_db: float = -2.0) -> void:
+	play_sfx(SFX_ROCKET_FALL, volume_db, 0.85)
+
+func play_capsule_crash(volume_db: float = 2.0) -> void:
+	play_sfx(SFX_ROCKET_CRASH, volume_db, 0.9)
+	play_sfx(SFX_ROCK_IMPACT, volume_db + 1.0, 0.8)
+
+func play_warning_beep(volume_db: float = -4.0) -> void:
+	play_sfx(SFX_WARNING_BEEP, volume_db, 1.0)
+
+func play_lever_ratchet(pitch_scale: float = 1.0, volume_db: float = -6.0) -> void:
+	play_sfx(SFX_LEVER_RATCHET, volume_db, pitch_scale)
+
+func play_lever_complete(volume_db: float = 1.0) -> void:
+	play_sfx(SFX_LEVER_ENGAGE, volume_db, 1.0)
+	play_sfx(SFX_PUZZLE_SOLVED, volume_db - 2.0, 1.05)
+
+func play_lever_release(volume_db: float = -6.0) -> void:
+	play_sfx(SFX_LEVER_RELEASE, volume_db, 0.85)
+
 func play_rock_pickup(volume_db: float = -6.0, pitch_scale: float = 1.0) -> void:
 	play_sfx(SFX_ROCK_PICKUP, volume_db, pitch_scale)
 
@@ -290,3 +325,4 @@ func play_puzzle_solved(volume_db: float = 2.0) -> void:
 
 func play_glitch(volume_db: float = -4.0) -> void:
 	play_sfx(SFX_GLITCH, volume_db, 1.0)
+

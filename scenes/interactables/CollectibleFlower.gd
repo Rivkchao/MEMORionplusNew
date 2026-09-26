@@ -83,7 +83,7 @@ func collect() -> void:
 	hide_prompt()
 	
 	if AudioManager:
-		AudioManager.play_item_pickup()
+		AudioManager.play_flower_collect()
 
 	if GameManager:
 		GameManager.collected_flower_count += 1

@@ -99,6 +99,7 @@ func _setup_gameplay_state() -> void:
 			var fire_node = find_child(fire_name, true, false)
 			if fire_node:
 				fire_node.visible = true
+		_ensure_capsule_sfx(capsule)
 
 	# Khusus R1: kapsul yang sudah dibersihkan tetap tampil setelah cutscene pagi.
 	if has_node("StoryPointing2") and has_node("RionCapsule") and GameManager.r1_morning_intro_done:
@@ -123,6 +124,24 @@ func _workshop_tasks_done() -> bool:
 	return GameManager.terminal_puzzle_done \
 		and GameManager.solved_levers.get("CrusherRoom_Lever", false) \
 		and GameManager.solved_levers.get("OnaProgramRoom_Lever", false)
+
+func _ensure_capsule_sfx(capsule: Node3D) -> void:
+	if capsule == null:
+		return
+	var audio_3d := capsule.get_node_or_null("CapsuleSmokeAudio3D") as AudioStreamPlayer3D
+	if audio_3d == null:
+		audio_3d = AudioStreamPlayer3D.new()
+		audio_3d.name = "CapsuleSmokeAudio3D"
+		audio_3d.bus = &"SFX"
+		if AudioManager:
+			audio_3d.stream = AudioManager.SFX_ROCKET_FALL
+		audio_3d.pitch_scale = 0.5
+		audio_3d.volume_db = -2.0
+		audio_3d.max_distance = 35.0
+		audio_3d.unit_size = 8.0
+		capsule.add_child(audio_3d)
+	if not audio_3d.playing:
+		audio_3d.play()
 
 var _ona_follow: bool = false
 var _ona_last_anim: String = ""
@@ -376,6 +395,13 @@ func _play_rocket_intro() -> void:
 	# 3. Putar animasi roket Kehancuran
 	if anim_player:
 		anim_player.play("Kehancuran")
+		if AudioManager:
+			AudioManager.play_capsule_fall(0.0)
+			# Putar crash impact saat kapsul membentur tanah di detik ke-3.6
+			get_tree().create_timer(3.6).timeout.connect(func():
+				if AudioManager:
+					AudioManager.play_capsule_crash(3.0)
+			)
 
 	# 4. Saat roket mendarat (5 detik), arahkan kamera ke Ona yang mulai berjalan
 	await get_tree().create_timer(5.0).timeout
@@ -387,6 +413,7 @@ func _play_rocket_intro() -> void:
 		var smoke = capsule.find_child("Smoke", true, false)
 		if smoke:
 			smoke.visible = true
+		_ensure_capsule_sfx(capsule)
 	for fire_name in ["Fire1", "Fire2", "Fire3"]:
 		var fire_node = find_child(fire_name, true, false)
 		if fire_node:
