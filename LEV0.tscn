@@ -1,0 +1,357 @@
+[gd_scene format=3 uid="uid://b82ps7j6wivg3"]
+
+[ext_resource type="Shader" uid="uid://kqksnkqnjdhw" path="res://assets/LEV0/new_shader_menu.gdshader" id="1_menu_shader"]
+[ext_resource type="Script" uid="uid://bd7e2o5cw51jv" path="res://assets/LEV0/mesh_instance_3d.gd" id="2_vrcdu"]
+[ext_resource type="PackedScene" uid="uid://cfr420e3wtn8" path="res://assets/LEV0/Cockpit/CockPit.tscn" id="4_qu7jx"]
+[ext_resource type="PackedScene" uid="uid://bc80q4vuxb6x3" path="res://assets/LEV0/ChairCockpit/Chair.tscn" id="6_vrcdu"]
+[ext_resource type="Texture2D" uid="uid://2o8obgrgfe8u" path="res://assets/UIWarning.png" id="6_ytw3e"]
+[ext_resource type="PackedScene" uid="uid://bmxbnch8jh3rw" path="res://assets/LEV0/Asteroid/Asteroid.tscn" id="7_nw6ji"]
+[ext_resource type="Script" uid="uid://dbmemm04kd5ly" path="res://assets/LEV0/LEV0.gd" id="8_lev0"]
+[ext_resource type="PackedScene" uid="uid://dc4iqpnfqeuec" path="res://assets/LEV0/Planet/Planet.tscn" id="8_vrcdu"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_t66vt"]
+
+[sub_resource type="Sky" id="Sky_c0jhv"]
+sky_material = SubResource("ShaderMaterial_t66vt")
+
+[sub_resource type="Environment" id="Environment_472ct"]
+background_mode = 2
+sky = SubResource("Sky_c0jhv")
+glow_enabled = true
+glow_intensity = 1.0
+glow_bloom = 0.35
+glow_blend_mode = 0
+glow_hdr_threshold = 0.9
+glow_hdr_scale = 1.5
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_c0jhv"]
+render_priority = 0
+shader = ExtResource("1_menu_shader")
+shader_parameter/saturation = 1.4
+shader_parameter/deep_space_color = Color(0.12, 0.02, 0.18, 1)
+shader_parameter/deep_navy = Color(0.18, 0.1, 0.45, 1)
+shader_parameter/nebula_cyan = Color(0.1, 0.35, 0.75, 1)
+shader_parameter/nebula_teal = Color(0.12, 0.2, 0.58, 1)
+shader_parameter/nebula_purple = Color(0.38, 0.06, 0.52, 1)
+shader_parameter/nebula_magenta = Color(0.58, 0.03, 0.45, 1)
+shader_parameter/nebula_wine = Color(0.72, 0.05, 0.5, 1)
+shader_parameter/nebula_scale = 2.2
+shader_parameter/nebula_density = 1.2
+shader_parameter/star_density = 160.0
+shader_parameter/star_brightness = 1.8
+shader_parameter/twinkle_speed = 2.5
+
+[sub_resource type="SphereMesh" id="SphereMesh_472ct"]
+material = SubResource("ShaderMaterial_c0jhv")
+radius = 2000.0
+height = 4000.0
+
+[sub_resource type="Animation" id="Animation_wc5p8"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("InteriorKapsul/Camera3D/ColorRect:color")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Color(0.012617188, 0.012617188, 0.012617188, 1)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("InteriorKapsul/Camera3D:rotation")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector3(0.289676, 0, 0)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("InteriorKapsul:position")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector3(0, 0, 0)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("InteriorKapsul/Sprite3D:modulate")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+
+[sub_resource type="Animation" id="Animation_jsk3o"]
+resource_name = "babak_1"
+length = 7.1666665
+markers = [{
+"color": Color(0, 0, 0, 1),
+"name": &"new_marker",
+"time": 0.04
+}]
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("InteriorKapsul/Camera3D/ColorRect:color")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.03333334, 1.2666667, 2.5, 4.4666667, 5.7, 6.9666667),
+"transitions": PackedFloat32Array(1, 2.6390164, 0.32987696, 4.438278, 3.482202, 1),
+"update": 0,
+"values": [Color(0.012617188, 0.012617188, 0.012617188, 1), Color(0.011764706, 0.011764706, 0.011764706, 0.3647059), Color(0, 0, 0, 1), Color(0.011764706, 0.011764706, 0.011764706, 0), Color(0.011764706, 0.011764706, 0.011764706, 1), Color(0.011764706, 0.011764706, 0.011764706, 0)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("InteriorKapsul/Camera3D:rotation")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0.16666669, 1.9333333, 3.5333333, 4.9, 5.766667, 7),
+"transitions": PackedFloat32Array(6.2766724, 3.6049986, 3.999999, 3.4822013, 8.876552, 1.5157166),
+"update": 0,
+"values": [Vector3(1.5707964, 0.6981317, 0), Vector3(0.28972465, 0, 0), Vector3(0, 0, 0), Vector3(0.27925268, 0.6981317, 0), Vector3(0.27925268, -0.6981317, 0), Vector3(0.27925268, 0, 0)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("InteriorKapsul:position")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0.13333334, 7),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Vector3(0, 0, 0), Vector3(0, 0, -100)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("InteriorKapsul/Sprite3D:modulate")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 0.1, 0.69999933, 1.4333333, 2.1, 2.9666667, 3.7, 4.4333334, 5.1666665, 5.633333, 6.1666665, 6.733333, 7.0666666),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 1, 1, 0)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_4arys"]
+_data = {
+&"RESET": SubResource("Animation_wc5p8"),
+&"babak_1": SubResource("Animation_jsk3o")
+}
+
+[node name="LEV0" type="Node3D" unique_id=361616904]
+script = ExtResource("8_lev0")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1989228825]
+environment = SubResource("Environment_472ct")
+
+[node name="Camera3D" type="Camera3D" parent="WorldEnvironment" unique_id=1430565448]
+transform = Transform3D(0.006532221, 0, -0.99997866, -0.8038229, 0.59484553, -0.005250861, 0.59483284, 0.80384004, 0.0038856626, 0, 0, -0.31360555)
+fov = 80.1
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1797027111]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.018242717, 0.012365699, -0.016961813)
+mesh = SubResource("SphereMesh_472ct")
+script = ExtResource("2_vrcdu")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=262217057]
+transform = Transform3D(-0.32564256, -0.20110697, -0.9238577, -0.45154282, 0.8915659, -0.03491729, 0.83070207, 0.40579075, -0.3811401, 0, 0, -3.1554122)
+sky_mode = 1
+
+[node name="InteriorKapsul" type="Node3D" parent="." unique_id=576691466]
+
+[node name="CockPit" parent="InteriorKapsul" unique_id=505944070 instance=ExtResource("4_qu7jx")]
+
+[node name="ChairCockPit" parent="InteriorKapsul" unique_id=695883018 instance=ExtResource("6_vrcdu")]
+transform = Transform3D(-0.04994944, 0, 0.0022479778, 0, 0.05, 0, -0.0022479778, 0, -0.04994944, 0, -0.39713442, 0.035446167)
+
+[node name="Camera3D" type="Camera3D" parent="InteriorKapsul" unique_id=1209835852]
+transform = Transform3D(1, 0, 0, 0, 0.9583365, -0.28564176, 0, 0.28564176, 0.9583365, 0, 0.08883408, -0.110226035)
+current = true
+near = 0.001
+
+[node name="ColorRect" type="ColorRect" parent="InteriorKapsul/Camera3D" unique_id=1197154727]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.012617188, 0.012617188, 0.012617188, 1)
+
+[node name="Sprite3D" type="Sprite3D" parent="InteriorKapsul" unique_id=1675334887]
+transform = Transform3D(0.005, 0, 0, 0, 0.005, 0, 0, 0, 0.005, 0, 0.25941023, -0.30720124)
+texture = ExtResource("6_ytw3e")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=772899441]
+libraries/ = SubResource("AnimationLibrary_4arys")
+autoplay = &"babak_1"
+
+[node name="Asteroids" type="Node3D" parent="." unique_id=2061819696]
+
+[node name="astroids" parent="Asteroids" unique_id=1189607834 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 0, -8.107)
+
+[node name="astroids2" parent="Asteroids" unique_id=1968347542 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -8.107)
+
+[node name="astroids3" parent="Asteroids" unique_id=1665908289 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -1.055)
+
+[node name="astroids4" parent="Asteroids" unique_id=2007933140 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 0, -24.625)
+
+[node name="astroids5" parent="Asteroids" unique_id=143788531 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -24.625)
+
+[node name="astroids6" parent="Asteroids" unique_id=1452635819 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -17.573)
+
+[node name="astroids7" parent="Asteroids" unique_id=1539690992 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 0, -39.851)
+
+[node name="astroids8" parent="Asteroids" unique_id=332397822 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -39.851)
+
+[node name="astroids9" parent="Asteroids" unique_id=83168645 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -32.799)
+
+[node name="astroids10" parent="Asteroids" unique_id=1719990669 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 0, -60.983)
+
+[node name="astroids11" parent="Asteroids" unique_id=75184788 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -60.983)
+
+[node name="astroids12" parent="Asteroids" unique_id=1777921032 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -53.931)
+
+[node name="astroids13" parent="Asteroids" unique_id=1311546864 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 7.249, -8.107)
+
+[node name="astroids14" parent="Asteroids" unique_id=981364152 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -8.107)
+
+[node name="astroids15" parent="Asteroids" unique_id=1146515273 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -1.055)
+
+[node name="astroids16" parent="Asteroids" unique_id=687458187 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 7.249, -24.625)
+
+[node name="astroids17" parent="Asteroids" unique_id=1737740122 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -24.625)
+
+[node name="astroids18" parent="Asteroids" unique_id=1126297174 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -17.573)
+
+[node name="astroids19" parent="Asteroids" unique_id=1373660711 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 7.249, -39.851)
+
+[node name="astroids20" parent="Asteroids" unique_id=318108818 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -39.851)
+
+[node name="astroids21" parent="Asteroids" unique_id=1570644667 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -32.799)
+
+[node name="astroids22" parent="Asteroids" unique_id=1319333070 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 7.249, -60.983)
+
+[node name="astroids23" parent="Asteroids" unique_id=1005083499 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -60.983)
+
+[node name="astroids24" parent="Asteroids" unique_id=323337021 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -53.931)
+
+[node name="astroids25" parent="Asteroids" unique_id=1414586574 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 7.249, -73.813)
+
+[node name="astroids26" parent="Asteroids" unique_id=572959069 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -73.813)
+
+[node name="astroids27" parent="Asteroids" unique_id=148637495 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -66.761)
+
+[node name="astroids28" parent="Asteroids" unique_id=1279455786 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 0, -90.332)
+
+[node name="astroids29" parent="Asteroids" unique_id=1919520612 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -90.332)
+
+[node name="astroids30" parent="Asteroids" unique_id=1570387079 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -83.28)
+
+[node name="astroids31" parent="Asteroids" unique_id=1612952205 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 0, -105.557)
+
+[node name="astroids32" parent="Asteroids" unique_id=1040899380 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -105.557)
+
+[node name="astroids33" parent="Asteroids" unique_id=773099881 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -98.505)
+
+[node name="astroids34" parent="Asteroids" unique_id=947972353 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 0, -126.689)
+
+[node name="astroids35" parent="Asteroids" unique_id=168017740 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -126.689)
+
+[node name="astroids36" parent="Asteroids" unique_id=448572495 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 0, -119.637)
+
+[node name="astroids37" parent="Asteroids" unique_id=1962033783 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 7.249, -73.813)
+
+[node name="astroids38" parent="Asteroids" unique_id=23497524 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -73.813)
+
+[node name="astroids39" parent="Asteroids" unique_id=995915125 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -66.761)
+
+[node name="astroids40" parent="Asteroids" unique_id=1628295423 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 7.249, -90.332)
+
+[node name="astroids41" parent="Asteroids" unique_id=414625013 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -90.332)
+
+[node name="astroids42" parent="Asteroids" unique_id=1568655766 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -83.28)
+
+[node name="astroids43" parent="Asteroids" unique_id=1837463606 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 7.249, -105.557)
+
+[node name="astroids44" parent="Asteroids" unique_id=1487706927 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -105.557)
+
+[node name="astroids45" parent="Asteroids" unique_id=846491829 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -98.505)
+
+[node name="astroids46" parent="Asteroids" unique_id=248094702 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391, 7.249, -126.689)
+
+[node name="astroids47" parent="Asteroids" unique_id=1395927779 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -126.689)
+
+[node name="astroids48" parent="Asteroids" unique_id=514821343 instance=ExtResource("7_nw6ji")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.614, 7.249, -119.637)
+
+[node name="StylizedPlanet" parent="." unique_id=893886727 instance=ExtResource("8_vrcdu")]
+transform = Transform3D(1.6140927, 0, -4.732304, 0, 5, 0, 4.732304, 0, 1.6140927, 0, 1.9983025, -145.56)
