@@ -14,6 +14,7 @@ var point_9_dialog_done: bool = false
 # State R1 (Bengkel & Ruangan)
 var has_visited_workshop: bool = false
 var workshop_door_locked: bool = false
+var r1_puzzles_enabled: bool = true
 var solved_levers: Dictionary = {}
 var terminal_puzzle_done: bool = false
 var unpacking_rak1_done: bool = false

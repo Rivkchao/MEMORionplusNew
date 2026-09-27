@@ -192,18 +192,23 @@ func _handle_movement(delta: float) -> void:
 	var current_pos = global_position
 	var intended_pos = current_pos + Vector3(target_velocity.x, 0, target_velocity.z) * delta
 	
-	# Ambil navigation map dari World3D untuk validasi nav mesh Terrain3D
+	# Ambil navigation map dari World3D untuk validasi nav mesh Terrain3D (hanya jika ada region nav mesh aktif)
 	var nav_map: RID = get_world_3d().navigation_map
-	var constrained_pos = NavigationServer3D.map_get_closest_point(nav_map, intended_pos)
-	
-	# Sesuaikan arah & kecepatan agar mentok jika menabrak batas nav mesh
-	var safe_dir = (constrained_pos - current_pos) / delta
-	if current_pos.distance_to(constrained_pos) > 0.0001:
-		velocity.x = safe_dir.x
-		velocity.z = safe_dir.z
+	var regions := NavigationServer3D.map_get_regions(nav_map)
+	if regions.size() > 0:
+		var constrained_pos = NavigationServer3D.map_get_closest_point(nav_map, intended_pos)
+		
+		# Sesuaikan arah & kecepatan agar mentok jika menabrak batas nav mesh
+		var safe_dir = (constrained_pos - current_pos) / delta
+		if current_pos.distance_to(constrained_pos) > 0.0001:
+			velocity.x = safe_dir.x
+			velocity.z = safe_dir.z
+		else:
+			velocity.x = 0.0
+			velocity.z = 0.0
 	else:
-		velocity.x = 0.0
-		velocity.z = 0.0
+		velocity.x = target_velocity.x
+		velocity.z = target_velocity.z
 	# ----------------------------------------
 
 func _handle_jump() -> void:

@@ -82,6 +82,11 @@ func _try_interact() -> void:
 func _show_locked_notice() -> void:
 	if StoryManager == null or StoryManager.dialogue_box == null:
 		return
+	if not GameManager.unpacking_completed and GameManager.r1_morning_intro_done:
+		StoryManager.start_dialogue([
+			"Ona: \"Eh, Kapten Rion! Pintu keluar masih tertutup dan Tuan Rallux masih sibuk di kebun. Yuk, kita selesaikan beres-beres barang di rak dulu supaya kejutannya berhasil!\""
+		], "Ona")
+		return
 	StoryManager.start_dialogue([
 		"Rion: \"Pintu keluarnya masih terkunci. Sepertinya aku harus menyelesaikan semua tugas di bengkel dulu.\"",
 		"Ona: \"Betul. Selesaikan dulu semua puzzle bengkel sebelum kita keluar ya.\""

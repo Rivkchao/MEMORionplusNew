@@ -3,8 +3,8 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ksolp0n404ee"
-path.s3tc="res://.godot/imported/Pohon2B.png-41c48d8460b89dd91e1834e092dd19af.s3tc.ctex"
-path.etc2="res://.godot/imported/Pohon2B.png-41c48d8460b89dd91e1834e092dd19af.etc2.ctex"
+path.s3tc="res://.godot/imported/Pohon2B.png-1ffe81378acfb560f746e004c15ea014.s3tc.ctex"
+path.etc2="res://.godot/imported/Pohon2B.png-1ffe81378acfb560f746e004c15ea014.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,8 +12,8 @@ metadata={
 
 [deps]
 
-source_file="res://assets/World/Stylized Nature MegaKit/Textures/Pohon2B.png"
-dest_files=["res://.godot/imported/Pohon2B.png-41c48d8460b89dd91e1834e092dd19af.s3tc.ctex", "res://.godot/imported/Pohon2B.png-41c48d8460b89dd91e1834e092dd19af.etc2.ctex"]
+source_file="res://assets/World/Stylized Nature MegaKit/textures/Pohon2B.png"
+dest_files=["res://.godot/imported/Pohon2B.png-1ffe81378acfb560f746e004c15ea014.s3tc.ctex", "res://.godot/imported/Pohon2B.png-1ffe81378acfb560f746e004c15ea014.etc2.ctex"]
 
 [params]
 

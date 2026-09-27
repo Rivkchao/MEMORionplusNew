@@ -163,7 +163,7 @@ func show_mission_complete_checklist() -> void:
 
 func set_progress(current: int, total: int, item_name: String = "bintang") -> void:
 	if progress_label:
-		if total <= 0:
+		if total <= 0 or item_name == "barang":
 			progress_label.text = ""
 			progress_label.visible = false
 		else:

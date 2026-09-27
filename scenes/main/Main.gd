@@ -1,5 +1,8 @@
 extends Node3D
 
+signal _choice_selected(index: int)
+signal _text_input_submitted(text: String)
+
 const BGM_LEVEL1_EXPLORATION = preload("res://assets/audio/bgm/meditation_main.mp3")
 
 func _ready() -> void:
@@ -112,7 +115,7 @@ func _setup_gameplay_state() -> void:
 		if not GameManager.unpacking_rak1_done:
 			GameManager.set_objective("Kumpulkan perkakas berserakan dan rapikan Rak 1", 0, "")
 		elif not GameManager.solved_levers.get("CrusherRoom_Lever", false):
-			GameManager.set_objective("Tarik Tuas di Ruang Crusher", 0, "")
+			GameManager.set_objective("Nyalakan tuas lampu di Ruang Crusher", 0, "")
 		elif not GameManager.solved_levers.get("OnaProgramRoom_Lever", false):
 			GameManager.set_objective("Tarik Tuas di Ona Program Room", 0, "")
 		elif not GameManager.terminal_puzzle_done:
@@ -162,8 +165,8 @@ func _process(delta: float) -> void:
 		_set_ona_anim(ona, "idle")
 		return
 	if not _ona_follow:
-		# Ona baru mengikuti Rion setelah game unpacking Rak 1 selesai
-		if GameManager.unpacking_rak1_done:
+		# Ona baru mengikuti Rion setelah seluruh game unpacking selesai
+		if GameManager.unpacking_completed:
 			_ona_follow = true
 		else:
 			return
@@ -636,7 +639,6 @@ func _play_workshop_intro() -> void:
 	var p3_dialog_1: Array[String] = [
 		"Rallux: \"Eh? Ona! Kamu sudah kembali dari jalan-jalan di hutan?\"",
 		"Rallux: \"Oho! Dan siapa teman baru di sampingmu ini?\"",
-		"Rion langsung menarik jubah Ona lebih erat, menyembunyikan wajahnya karena masih ragu dan malu pada orang asing"
 	]
 	StoryManager.start_dialogue(p3_dialog_1, "Rallux")
 	await StoryManager.dialogue_finished
@@ -665,7 +667,6 @@ func _play_workshop_intro() -> void:
 		"Ona: \"Selamat sore, Tuan Rallux. Kenalkan, ini adalah teman baru kita. Namanya Rion. Dia masih agak malu dan berhati-hati saat bertemu dengan orang baru.\"",
 		"Rallux: \"Ah, wajar sekali! Kalau aku jadi Rion dan tiba-tiba melihat orang asing tak dikenal, aku juga pasti memilih sembunyi dulu di balik punggungmu, Ona.\"",
 		"Rallux: \"Halo, Rion. Senang sekali bisa menyambutmu di sini. Anggap saja tempat ini seperti ruang bermainmu sendiri ya. Kamu bebas melihat-lihat, duduk di sana, atau sekadar menikmati wangi matcha di bengkel ini.\"",
-		"Rallux memperhatikan tubuh Rion yang masih tampak kaku dan tegang",
 		"Rallux: \"Ona, bagaimana kalau kamu ajak Rion jalan-jalan santai dulu di sekitar kebun luar? Supaya Rion bisa menghirup udara segar dan merasa lebih rileks dulu.\"",
 		"Ona: \"Ide yang sangat bagus, Tuan Rallux. Udara sore di luar sangat sejuk dan menenangkan.\"",
 		"Ona: \"Ayo, Rion... kita jalan-jalan santai di luar sebentar, mau?\"",
@@ -781,6 +782,14 @@ func _play_lev1_flashback() -> void:
 		var kap = capsule.find_child("KapsulRion", true, false)
 		if kap:
 			kap.visible = true
+		var jet_node = capsule.find_child("Jet", true, false)
+		if jet_node:
+			jet_node.visible = false
+		var smoke_node = capsule.find_child("Smoke", true, false)
+		if smoke_node:
+			smoke_node.visible = true
+			if smoke_node is GPUParticles3D:
+				smoke_node.emitting = true
 
 	# Pastikan efek api di lokasi crash tetap tampil saat kilas balik
 	for fire_name in ["Fire1", "Fire2", "Fire3"]:
@@ -835,7 +844,30 @@ func _play_lev1_flashback() -> void:
 	fade_rect.modulate.a = 1.0
 	fade_rect.mouse_filter = Control.MOUSE_FILTER_STOP
 
+	# Kondisikan langit dan pencahayaan ke malam hari (bintang, bulan, aurora, dan lampu malam)
+	var sun = find_child("DirectionalLight3D", true, false)
+	var prev_sun_elapsed: float = 0.0
+	var prev_sun_process: bool = true
+	if sun:
+		prev_sun_elapsed = sun.get("elapsed") if sun.get("elapsed") != null else 0.0
+		prev_sun_process = sun.is_processing()
+		var cycle_dur: float = sun.get("cycle_duration") if sun.get("cycle_duration") != null else 70.0
+		sun.set("elapsed", 0.65 * cycle_dur)
+		sun.set("_update_timer", 1.0)
+		if sun.has_method("_process"):
+			sun._process(0.0)
+		if sun.has_method("_update_ambient_light"):
+			sun._update_ambient_light(0.65)
+		if sun.has_method("_update_water_glow"):
+			sun._update_water_glow(0.65)
+		if sun.has_method("_update_terrain_glow"):
+			sun._update_terrain_glow(0.65)
+		if sun.has_method("_update_rock_glow"):
+			sun._update_rock_glow(0.65)
+		sun.set_process(false)
+
 	_set_monochrome(true)
+	var gray_canvas = _create_grayscale_flashback_filter()
 	_set_flashback_particles(true)
 	await _fade_screen_in(0.8)
 	var flashback: Array[String] = [
@@ -845,15 +877,270 @@ func _play_lev1_flashback() -> void:
 	]
 	StoryManager.start_dialogue(flashback, "Rallux")
 	await StoryManager.dialogue_finished
-	await _fade_screen_out(0.25)
+	await _fade_screen_out(0.4)
 	_set_flashback_particles(false)
+	if is_instance_valid(gray_canvas):
+		gray_canvas.queue_free()
 	_set_monochrome(false)
 	if is_instance_valid(rally):
 		rally.queue_free()
+	if sun:
+		sun.set_process(prev_sun_process)
+		sun.set("elapsed", prev_sun_elapsed)
+		sun.set("_update_timer", 1.0)
+		if sun.has_method("_process"):
+			sun._process(0.0)
+
+## Menampilkan popup pilihan respons pemain (2 opsi)
+func _prompt_choice(options: Array[String]) -> int:
+	var canvas := CanvasLayer.new()
+	canvas.layer = 125
+	add_child(canvas)
+
+	var bg := ColorRect.new()
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0.0, 0.0, 0.0, 0.55)
+	canvas.add_child(bg)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	canvas.add_child(center)
+
+	var panel := PanelContainer.new()
+	var panel_sb := StyleBoxFlat.new()
+	panel_sb.bg_color = Color(0.08, 0.11, 0.16, 0.95)
+	panel_sb.border_color = Color(0.28, 0.58, 0.88, 0.9)
+	panel_sb.border_width_left = 2
+	panel_sb.border_width_top = 2
+	panel_sb.border_width_right = 2
+	panel_sb.border_width_bottom = 2
+	panel_sb.corner_radius_top_left = 12
+	panel_sb.corner_radius_top_right = 12
+	panel_sb.corner_radius_bottom_left = 12
+	panel_sb.corner_radius_bottom_right = 12
+	panel_sb.content_margin_left = 28
+	panel_sb.content_margin_top = 22
+	panel_sb.content_margin_right = 28
+	panel_sb.content_margin_bottom = 26
+	panel.add_theme_stylebox_override("panel", panel_sb)
+	center.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 14)
+	vbox.custom_minimum_size = Vector2(560, 0)
+	panel.add_child(vbox)
+
+	var title_lbl := Label.new()
+	title_lbl.text = "PILIHAN RESPON RION"
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.add_theme_color_override("font_color", Color(0.4, 0.85, 1.0, 1.0))
+	title_lbl.add_theme_font_size_override("font_size", 16)
+	vbox.add_child(title_lbl)
+
+	var sep := HSeparator.new()
+	vbox.add_child(sep)
+
+	for i in range(options.size()):
+		var btn := Button.new()
+		btn.text = options[i]
+		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		btn.custom_minimum_size = Vector2(540, 52)
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+
+		var btn_sb := StyleBoxFlat.new()
+		btn_sb.bg_color = Color(0.14, 0.19, 0.28, 0.9)
+		btn_sb.border_color = Color(0.35, 0.55, 0.78, 0.8)
+		btn_sb.border_width_left = 1
+		btn_sb.border_width_top = 1
+		btn_sb.border_width_right = 1
+		btn_sb.border_width_bottom = 1
+		btn_sb.corner_radius_top_left = 8
+		btn_sb.corner_radius_top_right = 8
+		btn_sb.corner_radius_bottom_left = 8
+		btn_sb.corner_radius_bottom_right = 8
+		btn_sb.content_margin_left = 16
+		btn_sb.content_margin_right = 16
+		btn_sb.content_margin_top = 10
+		btn_sb.content_margin_bottom = 10
+		btn.add_theme_stylebox_override("normal", btn_sb)
+
+		var btn_sb_hover := btn_sb.duplicate() as StyleBoxFlat
+		btn_sb_hover.bg_color = Color(0.22, 0.32, 0.48, 0.95)
+		btn_sb_hover.border_color = Color(0.55, 0.85, 1.0, 1.0)
+		btn.add_theme_stylebox_override("hover", btn_sb_hover)
+
+		var btn_sb_pressed := btn_sb.duplicate() as StyleBoxFlat
+		btn_sb_pressed.bg_color = Color(0.09, 0.14, 0.22, 0.95)
+		btn.add_theme_stylebox_override("pressed", btn_sb_pressed)
+
+		var idx_val: int = i
+		btn.pressed.connect(func():
+			_choice_selected.emit(idx_val)
+		)
+		vbox.add_child(btn)
+
+	var prev_mouse_mode = Input.mouse_mode
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	var chosen: int = await _choice_selected
+	Input.mouse_mode = prev_mouse_mode
+	canvas.queue_free()
+	return chosen
+
+## Menampilkan narasi transisi sarapan di layar hitam dengan jeda hening
+func _show_black_screen_narration(text: String, hold_time: float = 4.0) -> void:
+	await _fade_screen_out(0.8)
+
+	var canvas := CanvasLayer.new()
+	canvas.layer = 125
+	add_child(canvas)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	canvas.add_child(center)
+
+	var label := Label.new()
+	label.text = text
+	label.custom_minimum_size = Vector2(740, 0)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", Color(0.92, 0.93, 0.96, 0.95))
+	label.add_theme_font_size_override("font_size", 18)
+	label.modulate.a = 0.0
+	center.add_child(label)
+
+	var t_in = create_tween()
+	t_in.tween_property(label, "modulate:a", 1.0, 1.0)
+	await t_in.finished
+
+	await get_tree().create_timer(hold_time).timeout
+
+	var t_out = create_tween()
+	t_out.tween_property(label, "modulate:a", 0.0, 0.8)
+	await t_out.finished
+
+	# Jeda hening sekitar 2 detik persis sesuai instruksi
+	await get_tree().create_timer(2.0).timeout
+
+	canvas.queue_free()
+
+## Pop-up jendela dialog interaktif / kotak input teks untuk refleksi diri
+func _prompt_text_input(header: String, question: String, placeholder: String) -> String:
+	var canvas := CanvasLayer.new()
+	canvas.layer = 125
+	add_child(canvas)
+
+	var bg := ColorRect.new()
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0.0, 0.0, 0.0, 0.6)
+	canvas.add_child(bg)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	canvas.add_child(center)
+
+	var panel := PanelContainer.new()
+	var panel_sb := StyleBoxFlat.new()
+	panel_sb.bg_color = Color(0.08, 0.11, 0.16, 0.95)
+	panel_sb.border_color = Color(0.3, 0.65, 0.95, 0.9)
+	panel_sb.border_width_left = 2
+	panel_sb.border_width_top = 2
+	panel_sb.border_width_right = 2
+	panel_sb.border_width_bottom = 2
+	panel_sb.corner_radius_top_left = 12
+	panel_sb.corner_radius_top_right = 12
+	panel_sb.corner_radius_bottom_left = 12
+	panel_sb.corner_radius_bottom_right = 12
+	panel_sb.content_margin_left = 28
+	panel_sb.content_margin_top = 24
+	panel_sb.content_margin_right = 28
+	panel_sb.content_margin_bottom = 26
+	panel.add_theme_stylebox_override("panel", panel_sb)
+	center.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	vbox.custom_minimum_size = Vector2(620, 0)
+	panel.add_child(vbox)
+
+	var header_lbl := Label.new()
+	header_lbl.text = header
+	header_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header_lbl.add_theme_color_override("font_color", Color(1.0, 0.82, 0.35, 1.0))
+	header_lbl.add_theme_font_size_override("font_size", 17)
+	vbox.add_child(header_lbl)
+
+	var sep := HSeparator.new()
+	vbox.add_child(sep)
+
+	var q_lbl := Label.new()
+	q_lbl.text = question
+	q_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	q_lbl.add_theme_color_override("font_color", Color(0.9, 0.92, 0.95, 1.0))
+	q_lbl.add_theme_font_size_override("font_size", 15)
+	vbox.add_child(q_lbl)
+
+	var line_edit := LineEdit.new()
+	line_edit.placeholder_text = placeholder
+	line_edit.custom_minimum_size = Vector2(0, 44)
+	line_edit.max_length = 120
+	line_edit.clear_button_enabled = true
+	var le_sb := StyleBoxFlat.new()
+	le_sb.bg_color = Color(0.12, 0.16, 0.24, 0.9)
+	le_sb.border_color = Color(0.35, 0.5, 0.7, 0.7)
+	le_sb.border_width_left = 1
+	le_sb.border_width_top = 1
+	le_sb.border_width_right = 1
+	le_sb.border_width_bottom = 1
+	le_sb.corner_radius_top_left = 6
+	le_sb.corner_radius_top_right = 6
+	le_sb.corner_radius_bottom_left = 6
+	le_sb.corner_radius_bottom_right = 6
+	le_sb.content_margin_left = 12
+	le_sb.content_margin_right = 12
+	line_edit.add_theme_stylebox_override("normal", le_sb)
+	vbox.add_child(line_edit)
+
+	var hbox_btn := HBoxContainer.new()
+	hbox_btn.alignment = BoxContainer.ALIGNMENT_END
+	vbox.add_child(hbox_btn)
+
+	var send_btn := Button.new()
+	send_btn.text = "Kirim / Selesai"
+	send_btn.custom_minimum_size = Vector2(140, 40)
+	var btn_sb := StyleBoxFlat.new()
+	btn_sb.bg_color = Color(0.18, 0.45, 0.75, 0.9)
+	btn_sb.corner_radius_top_left = 6
+	btn_sb.corner_radius_top_right = 6
+	btn_sb.corner_radius_bottom_left = 6
+	btn_sb.corner_radius_bottom_right = 6
+	send_btn.add_theme_stylebox_override("normal", btn_sb)
+	var btn_sb_hover := btn_sb.duplicate() as StyleBoxFlat
+	btn_sb_hover.bg_color = Color(0.24, 0.55, 0.9, 1.0)
+	send_btn.add_theme_stylebox_override("hover", btn_sb_hover)
+	hbox_btn.add_child(send_btn)
+
+	var on_submit = func():
+		var val: String = line_edit.text.strip_edges()
+		_text_input_submitted.emit(val)
+
+	send_btn.pressed.connect(on_submit)
+	line_edit.text_submitted.connect(func(_t): on_submit.call())
+
+	var prev_mouse_mode = Input.mouse_mode
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	line_edit.grab_focus()
+
+	var result: String = await _text_input_submitted
+	Input.mouse_mode = prev_mouse_mode
+	canvas.queue_free()
+	return result
 
 ## Cutscene pagi di bengkel R1 (setelah fade "KEESOKAN HARINYA"):
-## masa kini di depan barier kapsul, Rion bangun & melangkah ke Point5,
-## Rallux pamit keluar, lalu gameplay misi beres-beres dimulai.
+## Rion bangun di Point2, berjalan ke Point3, dialog hoam, Ona menyapa,
+## menghadap kapsul, pilihan sarapan, narasi layar hitam,
+## obrolan santai & refleksi mesin roket turbo ADHD, Rallux pamit,
+## lalu gameplay bantu Ona membersihkan lantai bengkel.
 func _play_r1_morning_intro() -> void:
 	var player: CharacterBody3D = find_child("Player", true, false) as CharacterBody3D
 	var camera_rig = find_child("CameraRig", true, false)
@@ -882,7 +1169,7 @@ func _play_r1_morning_intro() -> void:
 	if capsule:
 		capsule.visible = true
 
-	# Posisi barier kapsul Rion di R1 (adegan masa kini)
+	# Posisi barier kapsul Rion di R1
 	var barrier: Node3D = capsule.find_child("CapsuleBarier", true, false) as Node3D if capsule else null
 	var cap_pos: Vector3 = Vector3(-4.0, 0.0, -39.0)
 	if barrier:
@@ -891,56 +1178,53 @@ func _play_r1_morning_intro() -> void:
 		cap_pos = capsule.global_position
 	cap_pos.y = 0.0
 
-	# Rion menunggu (akan fade in) di Point5
 	var storypoints := get_node_or_null("StoryPointing2")
-	var p5: Marker3D = storypoints.get_node_or_null("Point5") as Marker3D if storypoints else null
-	var rion_target: Vector3 = p5.global_position if p5 else Vector3(38.508793, 0.0, 0.0)
+	var p2: Marker3D = storypoints.get_node_or_null("Point2") as Marker3D if storypoints else null
+	var p3: Marker3D = storypoints.get_node_or_null("Point3") as Marker3D if storypoints else null
 
-	# 2. Blocking: Ona & Rallux berdampingan di depan barier kapsul
+	var p2_pos: Vector3 = p2.global_position if p2 else Vector3(-22.378, 0.0, -7.185)
+	var p3_pos: Vector3 = p3.global_position if p3 else Vector3(-7.284, 0.0, -6.486)
+	p2_pos.y = 0.0
+	p3_pos.y = 0.0
+
+	# 2. Ona & Rallux berada di depan barier kapsul Rion
 	var ona_pos: Vector3 = cap_pos + Vector3(-2.6, 0.0, 2.8)
 	var rallux_pos: Vector3 = cap_pos + Vector3(2.4, 0.0, 2.4)
 
 	if ona:
 		ona.global_position = ona_pos
 		ona.velocity = Vector3.ZERO
+		var d_ona: Vector3 = cap_pos - ona.global_position
+		d_ona.y = 0.0
+		if d_ona.length_squared() > 0.01:
+			ona.rotation.y = atan2(-d_ona.x, -d_ona.z)
 		if ona.has_method("play_animation"):
 			ona.play_animation("idle")
+
 	if rallux:
 		rallux.global_position = rallux_pos
+		var d_ral: Vector3 = cap_pos - rallux.global_position
+		d_ral.y = 0.0
+		if d_ral.length_squared() > 0.01:
+			rallux.rotation.y = atan2(d_ral.x, d_ral.z)
 		if rallux.has_method("play_animation"):
 			rallux.play_animation("idle")
-	if player:
-		player.global_position = rion_target
-		player.rotation = Vector3.ZERO
-	if rion_mesh:
-		rion_mesh.rotation = Vector3.ZERO
 
+	# Kamera awal: menyorot Ona & Rallux di depan barier kapsul
 	var cam: Camera3D = null
 	if camera_rig:
 		cam = camera_rig.find_child("*Camera*", true, false) as Camera3D
 		if cam:
 			cam.make_current()
-
-	# Hadapkan Ona & Rallux ke kapsul
-	if ona:
-		var d_ona: Vector3 = cap_pos - ona.global_position
-		d_ona.y = 0.0
-		if d_ona.length_squared() > 0.01:
-			ona.rotation.y = atan2(-d_ona.x, -d_ona.z)
-	if rallux:
-		var d_ral: Vector3 = cap_pos - rallux.global_position
-		d_ral.y = 0.0
-		if d_ral.length_squared() > 0.01:
-			rallux.rotation.y = atan2(d_ral.x, d_ral.z)
-
-	# 3. KEMBALI KE MASA KINI: Ona & Rallux di depan barier kapsul
-	if camera_rig:
 		camera_rig.global_position = cap_pos + Vector3(0.0, 2.6, 9.0)
 		camera_rig.look_at(cap_pos + Vector3(0.0, 1.2, 0.0), Vector3.UP)
+
 	var fade_rect = _get_or_create_fade_rect()
 	fade_rect.modulate.a = 1.0
 	fade_rect.mouse_filter = Control.MOUSE_FILTER_STOP
-	await _fade_screen_in(0.35)
+	await _fade_screen_in(0.4)
+
+	# Dialog awal Ona & Rallux di depan kapsul sebelum Rion bangun
 	var present_1: Array[String] = [
 		"Ona: \"Jadi... rekaman log kapsulnya benar-benar tidak bisa dipulihkan sama sekali, Tuan Rallux?\"",
 		"Rallux: \"Semua catatan riwayat di sistem kapsul hangus terbakar saat menembus orbit. Rion kehilangan seluruh ingatannya, Ona. Dia tidak tahu dari mana asalnya, siapa keluarganya, atau ke mana arah tujuannya.\"",
@@ -950,129 +1234,236 @@ func _play_r1_morning_intro() -> void:
 	StoryManager.start_dialogue(present_1, "Ona")
 	await StoryManager.dialogue_finished
 
-	# 4. RION BANGUN DI POINT5: fade in + shoot dari depan badan
-	await _fade_screen_out(0.5)
-	var dir_to_capsule: Vector3 = cap_pos - rion_target
-	dir_to_capsule.y = 0.0
-	if dir_to_capsule.length_squared() > 0.0001:
-		dir_to_capsule = dir_to_capsule.normalized()
+	# Transisi fade ke Rion bangun di Point2
+	await _fade_screen_out(0.4)
+
+	# 3. Summon Rion di Point2, hadapkan ke Point3
+	var walk_dir: Vector3 = p3_pos - p2_pos
+	walk_dir.y = 0.0
+	if walk_dir.length_squared() > 0.01:
+		walk_dir = walk_dir.normalized()
 	else:
-		dir_to_capsule = Vector3(0.0, 0.0, -1.0)
+		walk_dir = Vector3(1.0, 0.0, 0.0)
+
 	if player:
-		player.global_position = rion_target
+		player.global_position = p2_pos
+		player.rotation = Vector3.ZERO
 	if rion_mesh:
-		rion_mesh.rotation.y = atan2(dir_to_capsule.x, dir_to_capsule.z)
+		rion_mesh.rotation.y = atan2(walk_dir.x, walk_dir.z)
+
 	if camera_rig:
-		camera_rig.global_position = rion_target + dir_to_capsule * 8.5 + Vector3(0.0, 2.7, 0.0)
-		camera_rig.look_at(rion_target + Vector3(0.0, 1.25, 0.0), Vector3.UP)
+		camera_rig.global_position = p2_pos + Vector3(-3.5, 2.3, 3.5)
+		camera_rig.look_at(p2_pos + Vector3(0.0, 1.2, 0.0), Vector3.UP)
+
 	await _fade_screen_in(0.4)
 
+	# 4. Rion berjalan dari Point2 ke Point3
+	if p_anim:
+		p_anim.set("parameters/StateMachine/Move/blend_position", 0.5)
+
+	var walk_tween = create_tween().set_parallel(true)
+	if player:
+		walk_tween.tween_property(player, "global_position", p3_pos, 3.0)
+	if camera_rig:
+		var cam_dest = p3_pos + Vector3(-3.5, 2.3, 3.5)
+		walk_tween.tween_property(camera_rig, "global_position", cam_dest, 3.0)
+	await walk_tween.finished
+
+	if p_anim:
+		p_anim.set("parameters/StateMachine/Move/blend_position", 0.0)
+	if camera_rig and player:
+		camera_rig.look_at(player.global_position + Vector3(0.0, 1.2, 0.0), Vector3.UP)
+
+	# 5. Dialog Hoam: Rion mencari mereka dari Point3
 	var rion_wake: Array[String] = [
 		"Rion: \"Hoaaam... Ona...? Tuan Rallux...? Kalian di mana?\""
 	]
 	StoryManager.start_dialogue(rion_wake, "Rion")
 	await StoryManager.dialogue_finished
 
-	# 4b. CUTSCENE PENGECEKAN KESEHATAN oleh Rallux (di ruang kerja bengkel)
-	await _fade_screen_out(0.3)
+	# Ona & Rallux dari depan kapsul menoleh ke arah Rion di Point3
+	if ona and player:
+		var d_o: Vector3 = player.global_position - ona.global_position
+		d_o.y = 0.0
+		if d_o.length_squared() > 0.01:
+			ona.rotation.y = atan2(-d_o.x, -d_o.z)
 	if rallux and player:
-		rallux.global_position = rion_target + dir_to_capsule * 2.8
-		var d_ral: Vector3 = player.global_position - rallux.global_position
-		d_ral.y = 0.0
-		if d_ral.length_squared() > 0.01:
-			rallux.rotation.y = atan2(d_ral.x, d_ral.z)
-		if rallux.has_method("play_animation"):
-			rallux.play_animation("idle")
-	if camera_rig:
-		var side: Vector3 = Vector3(-dir_to_capsule.z, 0.0, dir_to_capsule.x)
-		camera_rig.global_position = rion_target + side * 4.5 + Vector3(0.0, 2.8, 0.0)
-		camera_rig.look_at(rion_target + dir_to_capsule * 1.4 + Vector3(0.0, 1.3, 0.0), Vector3.UP)
-	await _fade_screen_in(0.35)
+		var d_r: Vector3 = player.global_position - rallux.global_position
+		d_r.y = 0.0
+		if d_r.length_squared() > 0.01:
+			rallux.rotation.y = atan2(d_r.x, d_r.z)
 
-	var health_dialog: Array[String] = [
-		"Rallux: \"Sebelum sarapan, sini dulu ya. Aku periksa ringan kondisi tubuhmu — tarik napas biasa saja.\"",
-		"Rion: \"Boleh, Tuan Rallux! Aku siap!\"",
-		"Rallux: \"Denyut nadi stabil, refleksmu cepat, suhunya normal. Tubuhmu sehat, Rion!\"",
-		"Rallux: \"Tapi ada satu hal menarik... cara kerja otakmu luar biasa.\"",
-		"Rion: \"Eh? Kenapa memangnya?\"",
-		"Rallux: \"Otakmu bergerak lebih cepat dari kebanyakan orang. Ide-idenya lincah melompat, rasa penasaranmu besar, dan energimu berlimpah. Itu hadiah istimewa!\"",
-		"Rallux: \"Kadang otak yang super cepat suka gampang bosan, gampang teralih, atau lupa hal kecil. Itu wajar banget — bukan berarti ada yang salah denganmu.\"",
-		"Rallux: \"Kita tinggal belajar bermain dengan caranya. Di bengkel ini kita latih pelan-pelan lewat kegiatan seru: menata barang, menebak pola, dan menyelesaikan teka-teki kecil.\"",
-		"Rallux: \"Anggap saja ini permainan, ya! Kalau bingung, Ona dan aku siap membantu.\"",
-		"Rion: \"Wah, jadi kayak main game gitu ya?! Aku suka! Ayo kita mulai!\""
+	var ona_greet: Array[String] = [
+		"Ona: \"Selamat pagi, Rion! Nyenyak tidurnya semalam?\""
 	]
-	StoryManager.start_dialogue(health_dialog, "Rallux")
+	StoryManager.start_dialogue(ona_greet, "Ona")
 	await StoryManager.dialogue_finished
 
-	# 5. KAMERA PINDAH KE BELAKANG RION, MENGARAH KE KAPSUL RION
-	if camera_rig:
-		var perp: Vector3 = Vector3(-dir_to_capsule.z, 0.0, dir_to_capsule.x)
-		camera_rig.global_position = rion_target - dir_to_capsule * 9.0 + perp * 1.0 + Vector3(0.0, 3.7, 0.0)
-		camera_rig.look_at(cap_pos + Vector3(0.0, 1.35, 0.0), Vector3.UP)
+	# 5. Setelah disapa Ona, barulah Rion menghadap ke arah kapsul (di mana Ona & Rallux berada)
+	var dir_to_cap: Vector3 = cap_pos - (player.global_position if player else p3_pos)
+	dir_to_cap.y = 0.0
+	if dir_to_cap.length_squared() > 0.01:
+		dir_to_cap = dir_to_cap.normalized()
+	else:
+		dir_to_cap = Vector3(0.0, 0.0, -1.0)
 
-	# Ona & Rallux serentak menghadap ke arah Rion
-	if ona and player:
-		var d1: Vector3 = player.global_position - ona.global_position
-		d1.y = 0.0
-		if d1.length_squared() > 0.01:
-			ona.rotation.y = atan2(-d1.x, -d1.z)
-	if rallux and player:
-		var d2: Vector3 = player.global_position - rallux.global_position
-		d2.y = 0.0
-		if d2.length_squared() > 0.01:
-			rallux.rotation.y = atan2(d2.x, d2.z)
+	if rion_mesh:
+		var turn_tw = create_tween()
+		turn_tw.tween_property(rion_mesh, "rotation:y", atan2(dir_to_cap.x, dir_to_cap.z), 0.6)
+		await turn_tw.finished
 
-	# Fadeout, lalu Ona berjalan dulu ke Point5 (di samping Rion, tidak terlalu dekat Rallux)
-	await _fade_screen_out(0.3)
-	await _fade_screen_in(0.35)
-	if ona and player:
-		var side_ona: Vector3 = Vector3(-dir_to_capsule.z, 0.0, dir_to_capsule.x)
-		var ona_target: Vector3 = rion_target + side_ona * 2.2
-		var walk_dir: Vector3 = ona_target - ona.global_position
-		walk_dir.y = 0.0
-		if walk_dir.length_squared() > 0.01:
-			ona.rotation.y = atan2(-walk_dir.x, -walk_dir.z)
-		if ona.has_method("play_animation"):
-			ona.play_animation("run")
-		var ona_walk := create_tween()
-		ona_walk.tween_property(ona, "global_position", ona_target, 1.6).set_trans(Tween.TRANS_SINE)
-		await ona_walk.finished
-		var look_rion: Vector3 = player.global_position - ona.global_position
-		look_rion.y = 0.0
-		if look_rion.length_squared() > 0.01:
-			ona.rotation.y = atan2(-look_rion.x, -look_rion.z)
+	if camera_rig and player:
+		var cam_tw = create_tween()
+		var cam_cap_pos = player.global_position - dir_to_cap * 4.0 + Vector3(-1.5, 2.0, 0.0)
+		cam_tw.tween_property(camera_rig, "global_position", cam_cap_pos, 0.8)
+		await cam_tw.finished
+		camera_rig.look_at(cap_pos + Vector3(0.0, 1.5, 0.0), Vector3.UP)
+
+	var capsule_dialog: Array[String] = [
+		"Rion: \"Selamat pagi! Tidurku nyenyak banget... Kasurnya empuk dan gak dingin sama sekali!\"",
+		"Rion: \"Lho?! Itu kan... kapsul besi yang aku naiki kemarin! Kok bisa sudah ada di sini dan bersih banget?!\"",
+		"Rion: \"Kalian mau bongkar ya? Mau ambil mesinnya? Jangan diapa-apain! Cuma itu satu-satunya barang yang tersisa pas aku bangun kemarin!\"",
+		"Ona: \"Tenang, Rion... tarik napas dulu. Tidak ada yang membongkar kapsulmu. Semuanya masih utuh dan aman persis seperti kemarin.\"",
+		"Rallux: \"Oho, jangan panik dulu, Nak. Aku tahu kapsul itu sangat berharga buatmu. Semalam, hutan jamur mulai turun kabut asam. Kalau kapsul logammu dibiarkan kehujanan di tanah basah semalaman, kabel-kabelnya bisa korsleting dan karatan.\"",
+		"Rallux: \"Jadi subuh tadi, aku dan Ona membawanya kemari pakai derek gravitasi mini. Kami juga sudah mencuci sisa lumut dan lumpur asamnya sampai bersih mengilap. Anggap saja ini servis selamat datang dari bengkel kami.\"",
+		"Rion: \"...Oh. Jadi bukan dibongkar...? Maaf... aku langsung nuduh yang aneh-aneh. Terima kasih banyak ya, Tuan Rallux, Ona. Kapsul ini... memang satu-satunya petunjuk siapa diriku.\"",
+		"Rallux: \"Sama-sama, Rion. Nah, karena urusan kapsul sudah beres dan harinya sudah cerah... bagaimana kalau kita sarapan dulu? Ona sudah memasak sup biji kacang hangat dan roti gandum bakar di beranda depan.\""
+	]
+	StoryManager.start_dialogue(capsule_dialog, "Rion")
+	await StoryManager.dialogue_finished
+
+	# 6. Pilihan respons pemain untuk sarapan
+	var choice_opts: Array[String] = [
+		"[ A ] \"Boleh, Tuan Rallux... perutku rasanya memang mulai keroncongan.\"",
+		"[ B ] \"Nanti dulu deh... dadaku masih agak deg-degan, belum nafsu.\""
+	]
+	var choice_idx: int = await _prompt_choice(choice_opts)
+	if choice_idx == 0:
+		var opt_a: Array[String] = [
+			"Rion: \"Boleh, Tuan Rallux... pas rasa kagetnya agak hilang, perutku langsung kerasa kosong. Aku mau ikut sarapan.\"",
+			"Rallux: \"Pilihan jempolan, Rion! Kamu tahu tidak, tubuh dan isi kepala kita itu cara kerjanya mirip sekali dengan mesin di kapsulmu. Otak kita butuh bahan bakar dan tenaga hangat di pagi hari. Kalau baterai tubuhmu terisi penuh, kepala kita jadi jauh lebih tenang, pikiran lebih jernih, dan kita gak gampang kaget atau cepat lelah saat mencoba hal-hal baru.\"",
+			"Rion: \"Wah, iya juga ya... pantesan kemarin pas lapar badanku sempat lemas dan gampang bingung.\"",
+			"Rallux: \"Tepat sekali! Makanya sarapan itu kunci utama buat mengisi tenaga kita. Yuk, kita melangkah ke beranda luar!\""
+		]
+		StoryManager.start_dialogue(opt_a, "Rion")
+		await StoryManager.dialogue_finished
+	else:
+		var opt_b: Array[String] = [
+			"Rion: \"Nanti dulu deh, Tuan Rallux... habis kaget tadi, dadaku masih agak deg-degan. Rasanya belum nafsu makan apa-apa.\"",
+			"Rallux: \"Nggak apa-apa, Nak. Wajar kok kalau sehabis kaget perutmu terasa belum siap menerima makanan.\"",
+			"Rallux: \"Tapi kakek mau kasih tahu rahasia kecil: tubuh dan isi kepala kita itu cara kerjanya mirip sekali dengan mesin di kapsulmu. Kadang-kadang, rasa cemas dan deg-degan kita jadi lebih susah reda karena baterai tubuh kita lagi kosong.\"",
+			"Rion: \"Maksudnya... rasa deg-deganku susah hilang gara-gara belum makan?\"",
+			"Rallux: \"Tepat sekali! Kalau mesin kehabisan bahan bakar, mesinnya bakal bergetar kencang dan alarm di dalamnya gampang berbunyi panik.\"",
+			"Rallux: \"Begitu perutmu mendapat sarapan hangat, tubuhmu akan kirim kabar ke kepala kalau semuanya sudah aman dan tenang. Daripada membiarkan rasa deg-deganmu bertahan lama, yuk kita jalan pelan-pelan ke beranda luar sambil hirup udara pagi.\"",
+			"Rion: \"Oh... begitu ya... Kalau gitu aku ikut ke luar deh, Tuan Rallux. Mau coba isi baterai biar gak deg-degan lagi.\""
+		]
+		StoryManager.start_dialogue(opt_b, "Rion")
+		await StoryManager.dialogue_finished
+
+	# 7. Narasi layar hitam (transisi sarapan)
+	var breakfast_narration: String = "Di bawah naungan beranda kebun yang sejuk dan semilir angin pagi, Rion menikmati sarapan hangat bersama Tuan Rallux dan Ona. Rasa hangat makanan mengembalikan energinya, dan mereka berbincang santai tanpa rasa takut lagi..."
+	await _show_black_screen_narration(breakfast_narration, 4.0)
+
+	# 8. Kembali ke dalam bengkel: Rion, Rallux, Ona santai di meja tengah (dekat Point3)
+	if ona:
+		ona.global_position = p3_pos + Vector3(-1.4, 0.0, 1.2)
 		if ona.has_method("play_animation"):
 			ona.play_animation("idle")
 
-	var greeting: Array[String] = [
-		"Ona: \"Selamat pagi, Rion! Nyenyak tidurnya semalam?\"",
-		"Rion: \"Selamat pagi! Tidurku nyenyak banget... Kasurnya empuk dan gak dingin sama sekali!\"",
-		"Rion: \"Lho?! Itu kan... kapsul besi yang aku naiki kemarin! Kok bisa sudah ada di sini dan bersih banget?!\"",
-		"Rallux: \"Haha! Semalam selagi kalian tidur, aku meminjam derek gravitasi sebentar untuk menjemputnya dari hutan jamur. Kapsul hebat ini terlalu berharga kalau dibiarkan di luar.\"",
-		"Rion: \"Wah... terima kasih banyak ya, Tuan Rallux!\"",
-		"Rallux: \"Sama-sama, Rion! Nah, karena cacing di perut kita pasti sudah mulai bernyanyi, aku mau meracik sarapan roti panggang madu dan teh matcha hangat dulu di dapur. Kalian tunggu sebentar ya!\""
+	if rallux:
+		rallux.global_position = p3_pos + Vector3(1.4, 0.0, 1.2)
+		if rallux.has_method("play_animation"):
+			rallux.play_animation("idle")
+
+	if player:
+		player.global_position = p3_pos + Vector3(0.0, 0.0, -1.6)
+
+	if ona and player:
+		var d_o: Vector3 = player.global_position - ona.global_position
+		d_o.y = 0.0
+		if d_o.length_squared() > 0.01:
+			ona.rotation.y = atan2(-d_o.x, -d_o.z)
+
+	if rallux and player:
+		var d_r: Vector3 = player.global_position - rallux.global_position
+		d_r.y = 0.0
+		if d_r.length_squared() > 0.01:
+			rallux.rotation.y = atan2(d_r.x, d_r.z)
+
+	if rion_mesh and player:
+		var d_mid: Vector3 = (p3_pos + Vector3(0.0, 0.0, 1.2)) - player.global_position
+		d_mid.y = 0.0
+		if d_mid.length_squared() > 0.01:
+			rion_mesh.rotation.y = atan2(d_mid.x, d_mid.z)
+
+	if camera_rig:
+		camera_rig.global_position = p3_pos + Vector3(-6.5, 3.2, -0.3)
+		camera_rig.look_at(p3_pos + Vector3(0.0, 1.2, 0.0), Vector3.UP)
+
+	await _fade_screen_in(0.5)
+
+	var post_breakfast: Array[String] = [
+		"Rion: \"Wah... sup kacangnya enak sekali! Perutku hangat, dan kepalaku rasanya jauh lebih enteng sekarang.\"",
+		"Ona: \"Syukurlah! Wajahmu juga sudah tidak sepucat tadi pagi.\"",
+		"Rallux: \"Nah, sekarang biar kuperiksa sebentar kondisi fisikmu setelah istirahat dan sarapan. Berdiri diam sebentar ya, Nak.\""
 	]
-	StoryManager.start_dialogue(greeting, "Rion")
+	StoryManager.start_dialogue(post_breakfast, "Rion")
 	await StoryManager.dialogue_finished
 
-	# 6. Rallux keluar sendiri lewat Point5 -> Point3 -> Point2 -> Point1 -> Point4
-	# (kamera TIDAK mengikuti; rutenya lewat titik-titik jalan supaya tidak menabrak objek)
+	# Jeda observasi singkat oleh Rallux
+	await get_tree().create_timer(1.2).timeout
+
+	var health_check_2: Array[String] = [
+		"Rallux: \"Luar biasa. Detak jantungmu stabil, sirkulasi energimu sangat bagus. Secara fisik, kamu 100% sehat dan kuat!\"",
+		"Rion: \"Hehe, terima kasih! Tapi... kalau aku sehat, kenapa ya dari kemarin kepalaku sering terasa aneh?\"",
+		"Rallux: \"Aneh bagaimana maksudmu?\"",
+		"Rallux: \"Dari kemarin kulihat matamu bergerak sangat cepat ke mana-mana, tanganmu sering mengetuk-ngetuk benda di dekatmu, dan sepertinya kamu sangat gelisah kalau harus diam di satu tempat tanpa melakukan apa-apa. Benar begitu?\"",
+		"Rion: \"Iya... benar banget, Tuan Rallux! Kadang rasanya ada terlalu banyak hal yang terjadi di kepalaku sekaligus.\""
+	]
+	StoryManager.start_dialogue(health_check_2, "Rallux")
+	await StoryManager.dialogue_finished
+
+	# 9. Kotak Curhat & Refleksi Diri (Interaktif)
+	var input_header: String = "KOTAK CURHAT & REFLEKSI DIRI"
+	var input_question: String = "Dalam kehidupan sehari-hari, hal apa yang sering terasa paling sulit atau bikin kamu kewalahan?\n(Contoh: gampang lupa, susah diam, susah mulai ngerjain sesuatu, dll)"
+	var player_input: String = await _prompt_text_input(input_header, input_question, "Tulis jawabanmu di sini...")
+	if player_input.strip_edges().is_empty():
+		player_input = "gampang lupa dan susah diam"
+
+	# 10. Dialog Refleksi & Psikoedukasi ADHD (Mesin Roket Turbo)
+	var turbo_dialog: Array[String] = [
+		"Rion: \"Itu dia... hal yang paling bikin aku capek atau kewalahan itu... " + player_input.strip_edges() + ".\"",
+		"Rallux: \"Terima kasih sudah mau berbagi, Nak. Dengar baik-baik ya, Rion... apa yang kamu rasakan itu bukan tanda bahwa kamu rusak, lemah, atau nakal.\"",
+		"Ona: \"Betul, Rion! Setiap orang punya tipe mesin pikiran yang berbeda-beda.\"",
+		"Rallux: \"Pikiran kebanyakan orang bekerja seperti kereta rel biasa: bergerak di jalur yang sama, kecepatannya teratur, dan gampang berhenti di setiap stasiun. Tapi pikiranmu, Rion... pikiranmu bekerja seperti Mesin Roket Turbo!\"",
+		"Rion: \"Mesin Roket Turbo...?\"",
+		"Rallux: \"Tepat sekali! Mesinmu punya daya pacu yang luar biasa hebat, rasa ingin tahu yang tinggi, dan penuh energi. Tapi karena kecepatannya luar biasa tinggi, kamu sering kesulitan saat harus mengerem mendadak, atau gampang berbelok ke hal lain yang terlihat lebih menarik di sekitarmu.\"",
+		"Ona: \"Jadi masalahnya bukan pada mesinmu yang rusak, melainkan kamu belum terbiasa memegang setir dan rem untuk roket secepat itu!\"",
+		"Rion: \"Wah... jadi kepalaku ini bukan aneh, tapi punya mesin roket ya? Keren juga sih kalau dipikir-pikir... tapi tetap saja bikin repot kalau remnya blong!\"",
+		"Rallux: \"Hahaha! Tentu saja. Dan rem itu bukan sesuatu yang langsung jadi dari pabrik, melainkan harus dilatih perlahan. Kita bisa pasang rambu-rambu kecil, membuat catatan navigasi, dan belajar cara mengatur laju bahan bakar mesinmu.\"",
+		"Rion: \"Siap, Tuan Rallux! Aku mau belajar cara jadi kapten untuk mesin roket di kepalaku ini!\"",
+		"Rallux: \"Bagus sekali semangatmu! Nah, sekarang kalian berdua santai dulu di sini. Aku mau ke kebun depan sebentar untuk memanen akar kristal sebelum matahari terlalu terik. Ona, tolong temani Rion ya.\"",
+		"Ona: \"Beres, Tuan Rallux! Hati-hati di jalan!\""
+	]
+	StoryManager.start_dialogue(turbo_dialog, "Rion")
+	await StoryManager.dialogue_finished
+
+	# 11. Tuan Rallux melangkah keluar dan menghilang dari pandangan
 	if rallux:
 		var route: Array[Vector3] = [rallux.global_position]
 		if storypoints:
-			for pname in ["Point5", "Point3", "Point2", "Point1", "Point4"]:
+			for pname in ["Point3", "Point2", "Point1", "Point4"]:
 				var m: Node3D = storypoints.get_node_or_null(pname) as Node3D
 				if m:
 					route.append(m.global_position)
 		_run_rallux_leave(rallux, route, 8.0)
+		var ral_fade = create_tween()
+		ral_fade.tween_property(rallux, "scale", Vector3.ZERO, 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		await ral_fade.finished
+		rallux.visible = false
 
-	# Kamera menyorot Rion & Ona untuk dialog inisiatif (mereka sudah di Point5)
+	# 12. Rion & Ona berhadapan untuk dialog penutup
 	if player and ona:
-		if camera_rig:
-			var side_cam: Vector3 = Vector3(-dir_to_capsule.z, 0.0, dir_to_capsule.x)
-			camera_rig.global_position = rion_target + dir_to_capsule * 7.0 + side_cam * 2.0 + Vector3(0.0, 2.8, 0.0)
-			camera_rig.look_at(rion_target + Vector3(0.0, 1.3, 0.0), Vector3.UP)
-		# Rion & Ona saling berhadapan
 		var face_dir: Vector3 = ona.global_position - player.global_position
 		face_dir.y = 0.0
 		if face_dir.length_squared() > 0.01:
@@ -1080,19 +1471,72 @@ func _play_r1_morning_intro() -> void:
 				rion_mesh.rotation.y = atan2(face_dir.x, face_dir.z)
 			ona.rotation.y = atan2(face_dir.x, face_dir.z)
 
-	# 7. INISIATIF RION
-	var initiative: Array[String] = [
-		"Rion: \"Ona... mumpung Tuan Rallux lagi keluar sebentar, boleh gak kalau kita rapikan lantai bengkel ini?\"",
-		"Ona: \"Kamu mau merapikannya, Rion?\"",
-		"Rion: \"Iya! Tuan Rallux sudah baik banget merawat kapsulku dan ngasih tempat istirahat yang hangat. Aku mau kumpulkan baut-baut yang melayang ini dan susun alat-alatnya ke rak dinding. Jadi pas Tuan Rallux balik nanti, lantainya sudah bersih dan gak bikin tersandung lagi!\"",
-		"Ona: \"Wah, inisiatif yang sangat hebat dan penuh perhatian, Rion! Tuan Rallux pasti akan sangat senang melihat bengkelnya tertata rapi. Aku akan bantu memproyeksikan panduan slot wadahnya untukmu.\""
+	var cleanup_dialog: Array[String] = [
+		"Rion: \"Ona... lihat deh lantainya. Barangnya masih berceceran ke mana-mana ya?\"",
+		"Ona: \"Iya, tadi pagi Tuan Rallux belum sempat merapikannya karena buru-buru menyiapkan sarapan hangat untuk kita.\"",
+		"Rion: \"Tuan Rallux kan sudah baik banget sama aku... Beliau merawat kapsulku, membuat sarapan, terus gak marah sama sekali waktu aku sempat curiga. Mumpung Tuan Rallux lagi periksa pipa di luar, gimana kalau kita beri kejutan? Kita bantu bereskan lantai bengkel ini bareng-bareng!\"",
+		"Ona: \"Wah, ide yang luar biasa, Rion! Kamu punya perhatian yang hebat. Tuan Rallux pasti akan senang sekali melihat bengkelnya kembali rapi.\"",
+		"Rion: \"Tapi... barangnya lumayan banyak. Kamu bantu arahkan ya, Ona? Biar pesawat turboku gak kebingungan milihnya.\"",
+		"Ona: \"Tentu saja! Ayo kita lihat rak yang pertama.\""
 	]
-	StoryManager.start_dialogue(initiative, "Rion")
+	StoryManager.start_dialogue(cleanup_dialog, "Rion")
 	await StoryManager.dialogue_finished
 
-	# 8. Aktifkan gameplay misi beres-beres
+	# [TRANSISI KAMERA & TAMPILAN OBJEKTIF]
+	# Kamera permainan meluncur mulus mendekat dan menyorot langsung ke arah Rak Pertama di sisi kiri ruangan
+	var rak1_pos := Vector3(2.4, 0.1, 37.6)
+
+	GameManager.ona_hold_position = true
+	_ona_follow = false
+
+	# Sesi 1: Ona di depan Rak 2 saja menghadap ke Kapsul Rion
+	if ona:
+		ona.global_position = Vector3(-6.4, 0.0, 34.0)
+		var d_ona: Vector3 = cap_pos - ona.global_position
+		d_ona.y = 0.0
+		if d_ona.length_squared() > 0.01:
+			ona.rotation.y = atan2(-d_ona.x, -d_ona.z)
+		_set_ona_anim(ona, "idle")
+
+	# Pindahkan Rion ke depan Rak 1 menghadap rak
+	if player:
+		player.global_position = Vector3(2.4, 0.0, 33.5)
+		player.velocity = Vector3.ZERO
+		if rion_mesh:
+			rion_mesh.rotation = Vector3.ZERO
+		player.rotation = Vector3.ZERO
+
+	# Kamera meluncur menyorot Rak 1 dan Rion
+	if camera_rig:
+		var cam_slide = create_tween().set_parallel(true)
+		cam_slide.tween_property(camera_rig, "global_position", Vector3(2.4, 2.5, 27.5), 1.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		await cam_slide.finished
+		camera_rig.look_at(Vector3(2.4, 1.4, 37.6), Vector3.UP)
+
+	var rak1_guide: Array[String] = [
+		"Ona: \"Sistem pemandu aktif! Untuk rak pertama ini, tugas kita cukup mengumpulkan tiga Papan Sirkuit, tiga Roda Gigi, dan tiga Baut.\""
+	]
+	StoryManager.start_dialogue(rak1_guide, "Ona")
+	await StoryManager.dialogue_finished
+
+	GameManager.set_objective("Rapikan Rak Pertama (0/9)", 0, "")
+
+	var rak1_order: Array[String] = [
+		"Rion: \"Harus urut dari papan sirkuit dulu ya, Ona?\"",
+		"Ona: \"Nggak perlu urut kok! Kamu bebas ambil barang mana saja yang paling dekat atau yang paling kamu suka duluan. Nanti rak pintarnya yang bakal menata barang itu ke posisi yang pas.\"",
+		"Rion: \"Asyik! Bebas pilih ya! Aku mulai bereskan sekarang!\""
+	]
+	StoryManager.start_dialogue(rak1_order, "Rion")
+	await StoryManager.dialogue_finished
+
+	# 13. Aktifkan gameplay pembersihan rak pertama
 	GameManager.r1_morning_intro_done = true
-	GameManager.set_objective("Kumpulkan perkakas yang berserakan di lantai dan selaraskan ke rak penyimpanan", 0, "")
+	GameManager.r1_puzzles_enabled = true
+
+	var unpack_mgr = get_tree().get_first_node_in_group("unpacking_manager")
+	if unpack_mgr and unpack_mgr.has_method("start_session_1"):
+		unpack_mgr.start_session_1()
+
 	if hud:
 		if hud.has_method("set_gameplay_ui_visible"):
 			hud.set_gameplay_ui_visible(true)
@@ -1105,22 +1549,11 @@ func _play_r1_morning_intro() -> void:
 		camera_rig.set_physics_process(true)
 		camera_rig.set_process(true)
 		camera_rig.set_process_unhandled_input(true)
+		var player_cam = camera_rig.find_child("*Camera*", true, false) as Camera3D
+		if player_cam:
+			player_cam.make_current()
 		if camera_rig.has_method("snap_to_target"):
 			camera_rig.snap_to_target()
-	if cam:
-		cam.make_current()
-
-	# Ona dipindah ke Point2 menghadap lurus (disamarkan dengan fade),
-	# hadap sama seperti saat dialog "TANG! KLATAK!" (+X).
-	await _fade_screen_out(0.3)
-	var p2 = storypoints.get_node_or_null("Point2") if storypoints else null
-	if ona and p2:
-		ona.global_position = p2.global_position
-		ona.rotation.y = atan2(-1.0, 0.0)
-		if ona.has_method("play_animation"):
-			ona.play_animation("idle")
-	_ona_follow = false
-	await _fade_screen_in(0.35)
 
 var _mono_we: WorldEnvironment = null
 var _mono_prev_enabled: bool = false
@@ -1141,6 +1574,31 @@ func _set_monochrome(on: bool) -> void:
 		if _mono_we and _mono_we.environment:
 			_mono_we.environment.adjustment_enabled = _mono_prev_enabled
 			_mono_we.environment.adjustment_saturation = _mono_prev_sat
+
+func _create_grayscale_flashback_filter() -> CanvasLayer:
+	var cl := CanvasLayer.new()
+	cl.layer = 15
+	var cr := ColorRect.new()
+	cr.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sh := Shader.new()
+	sh.code = """shader_type canvas_item;
+uniform sampler2D screen_texture : hint_screen_texture, filter_linear_mipmap;
+void fragment() {
+	vec4 c = texture(screen_texture, SCREEN_UV);
+	float gray = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+	vec2 uv = SCREEN_UV * (1.0 - SCREEN_UV.yx);
+	float vig = uv.x * uv.y * 15.0;
+	vig = clamp(pow(vig, 0.25), 0.0, 1.0);
+	COLOR = vec4(vec3(gray) * vig, 1.0);
+}
+"""
+	var sm := ShaderMaterial.new()
+	sm.shader = sh
+	cr.material = sm
+	cl.add_child(cr)
+	add_child(cl)
+	return cl
 
 func _set_flashback_particles(on: bool) -> void:
 	if not on:
@@ -1351,3 +1809,125 @@ func _run_rallux_route(rallux: Node3D, route: Array, rallux_anim: AnimationPlaye
 			rallux.play_animation("idle")
 		elif rallux_anim:
 			rallux_anim.play("idle")
+
+## Cutscene obrolan di depan Battery-EC setelah puzzle terminal selesai
+func play_battery_ec_cutscene() -> void:
+	var player = find_child("Player", true, false) as CharacterBody3D
+	var camera_rig = find_child("CameraRig", true, false)
+	var rallux = find_child("Rallux", true, false) as Node3D
+	var ona = find_child("Ona", true, false) as CharacterBody3D
+	var hud = find_child("HUD", true, false)
+
+	# 1. Nonaktifkan kontrol player & sembunyikan gameplay HUD
+	if hud:
+		if hud.has_method("set_gameplay_ui_visible"):
+			hud.set_gameplay_ui_visible(false)
+		else:
+			hud.visible = false
+	if player:
+		player.set_physics_process(false)
+		player.set_process_unhandled_input(false)
+	if camera_rig:
+		camera_rig.set_physics_process(false)
+		camera_rig.set_process(false)
+		camera_rig.set_process_unhandled_input(false)
+
+	# 2. Fade Out
+	await _fade_screen_out(0.6)
+	await get_tree().create_timer(0.2).timeout
+
+	# 3. Posisikan Rallux & Rion di depan Battery-EC
+	var battery_pos := Vector3(44.683, 0.0, -44.446)
+	var rallux_pos := Vector3(35.007, 0.0, -43.817)
+	var rion_pos := Vector3(44.142, 1.16, -37.878)
+
+	if rallux:
+		rallux.visible = true
+		rallux.global_position = rallux_pos
+		var r_dir := battery_pos - rallux_pos
+		r_dir.y = 0.0
+		if r_dir.length_squared() > 0.01:
+			rallux.rotation.y = atan2(r_dir.x, r_dir.z)
+		_play_rallux_anim(rallux, "idle")
+
+	if player:
+		player.global_position = rion_pos
+		player.velocity = Vector3.ZERO
+		var p_dir := battery_pos - rion_pos
+		p_dir.y = 0.0
+		var rion_mesh = player.get_node_or_null("RionMesh")
+		if rion_mesh and p_dir.length_squared() > 0.01:
+			rion_mesh.rotation.y = atan2(p_dir.x, p_dir.z)
+		var anim_tree: AnimationTree = player.get_node_or_null("AnimationTree")
+		if anim_tree:
+			anim_tree.set("parameters/StateMachine/Move/blend_position", 0.0)
+
+	# Ona sedang istirahat / isi baterai di ruangannya
+	if ona:
+		ona.visible = false
+
+	# 4. Kamera dari belakang mereka mengarah ke Battery-EC
+	if camera_rig:
+		camera_rig.global_position = Vector3(37.5, 2.8, -33.0)
+		camera_rig.look_at(Vector3(42.5, 1.4, -43.0), Vector3.UP)
+
+	# 5. Fade In
+	await _fade_screen_in(0.8)
+	await get_tree().create_timer(0.4).timeout
+
+	# 6. Dialog Utama Percakapan Baterai & Ona Pernah Marah
+	var lines: Array[String] = [
+		"Rallux: \"Nah, lihat ini, Rion. Aliran daya dari kabel yang kamu pasang tadi langsung mengalir ke tabung-tabung ini. Sekarang baterai cadangan bengkel kita sudah mulai terisi penuh lagi.\"",
+		"Rion: \"Keren banget... Warnanya hangat banget. Ona juga lagi isi baterai di ruangannya kan ya, Tuan Rallux?\"",
+		"Rallux: \"Betul. Ona sedang istirahat supaya mesin dan prosesor di kepalanya kembali dingin.\"",
+		"Rion: \"Tuan Rallux... aku boleh tanya sesuatu gak tentang Ona?\"",
+		"Rallux: \"Tentu saja boleh, Kapten. Mau tanya apa?\"",
+		"Rion: \"Ona kan selalu ramah, sopan, terus sabar banget nemenin aku... Tapi, memangnya dulu Ona pernah marah sama Tuan Rallux?\"",
+		"Rallux: \"Haha... pernah, Rion. Malah bukan cuma pernah, kami berdua dulu pernah saling marah dan mendiamkan satu sama lain seharian penuh.\"",
+		"Rion: \"Hah?! Serius?! Tuan Rallux sama Ona pernah saling marah?! Kok bisa? Tuan Rallux kan baik banget, terus Ona juga gak kelihatan galak sama sekali!\"",
+		"Rallux: \"Rion, aku ini orang biasa. Aku tidak selalu jadi orang yang sempurna. Ada hari-hari di mana aku capek sekali, banyak alat yang rusak, lalu kepalaku pusing. Waktu itu, kakek sempat bicara dengan nada tinggi dan tidak sengaja membentak Ona karena kakek sedang terburu-buru.\"",
+		"Rion: \"Terus... Onanya gimana?\"",
+		"Rallux: \"Ona kaget, lalu layarnya berkedip merah dan dia mogok bicara. Dia mengunci diri di ruang program dan menolak membantuku. Saat itu aku sadar, robot maupun manusia, kalau diperlakukan tidak adil, pasti hatinya terasa sakit dan kesal.\"",
+		"Rion: \"Kadang... kalau pikiranku lagi lari kencang banget atau pas aku lagi pengen main tapi disuruh diam, dadaku juga rasanya panas dan pengen marah, Tuan Rallux. Terus aku merasa bersalah... aku kira anak yang marah itu anak yang jahat.\"",
+		"Rallux: \"Rasa marah itu bukan tanda kalau kamu anak jahat, Rion. Rasa marah itu cuma alarm di dalam dada kita yang memberitahu kalau ada sesuatu yang bikin kita tidak nyaman atau capek. Yang membuat masalah jadi rumit itu bukan rasa marahnya, tapi apa yang kita lakukan saat sedang marah.\"",
+		"Rion: \"Lalu waktu itu, Tuan Rallux sama Ona gimana caranya bisa baikan lagi?\"",
+		"Rallux: \"Kakek menunggu sampai kepala kakek dingin dulu. Setelah napas kakek tenang, kakek yang pertama datang mengetuk pintu ruangan Ona. Kakek meminta maaf dengan jujur, mengakui kalau kakek salah karena sudah membentak. Begitu mendengar kakek minta maaf, Ona juga minta maaf karena sudah mendiamkan kakek. Kami berpelukan, dan bengkel ini kembali terasa nyaman.\"",
+		"Rion: \"Jadi... gak apa-apa ya kalau kita salah, asalkan kita berani minta maaf dan memperbaiki hubungan lagi?\"",
+		"Rallux: \"Tepat sekali, petualang kecil! Mengakui kesalahan dan berani minta maaf itu butuh keberanian yang sangat besar. Orang hebat bukan orang yang gak pernah marah, tapi orang yang tahu cara berbaikan kembali.\""
+	]
+	if StoryManager and StoryManager.has_method("start_dialogue"):
+		StoryManager.start_dialogue(lines, "Rallux")
+		await StoryManager.dialogue_finished
+
+	# (BZZT... Bunyi lonceng terminal energi berdenting pelan)
+	if AudioManager:
+		AudioManager.play_puzzle_solved()
+	await get_tree().create_timer(1.0).timeout
+
+	var closing_lines: Array[String] = [
+		"Rallux: \"Nah, baterai utama bengkel sudah penuh seratus persen! Obrolan kita tadi pas sekali waktunya. Sekarang, ayo kita ke Ruang Penghancur Barang (Crusher Room) untuk menyalakan tuas lampu dan dayanya!\"",
+		"Rion: \"Siap, Tuan Rallux! Ayo kita ke Ruang Crusher!\""
+	]
+	if StoryManager and StoryManager.has_method("start_dialogue"):
+		StoryManager.start_dialogue(closing_lines, "Rallux")
+		await StoryManager.dialogue_finished
+
+	# 7. Kembalikan kamera dan kontrol gameplay
+	if hud:
+		if hud.has_method("set_gameplay_ui_visible"):
+			hud.set_gameplay_ui_visible(true)
+		else:
+			hud.visible = true
+	if player:
+		player.set_physics_process(true)
+		player.set_process_unhandled_input(true)
+	if camera_rig:
+		camera_rig.set_physics_process(true)
+		camera_rig.set_process(true)
+		camera_rig.set_process_unhandled_input(true)
+		var player_cam = camera_rig.find_child("*Camera*", true, false) as Camera3D
+		if player_cam:
+			player_cam.make_current()
+		if camera_rig.has_method("snap_to_target"):
+			camera_rig.snap_to_target()
+	GameManager.set_objective("Nyalakan tuas lampu di Ruang Crusher", 0, "")

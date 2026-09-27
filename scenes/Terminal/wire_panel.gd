@@ -337,8 +337,6 @@ func _check_complete() -> void:
 			AudioManager.play_puzzle_wrong()
 
 	await get_tree().create_timer(0.8).timeout
-	puzzle_completed.emit(all_correct)
-	
 	if all_correct:
 		StoryManager.dialogue_box.set_avatar_by_emotion("kagum")
 		StoryManager.start_dialogue(["Daya terminal berhasil dipulihkan! Ingatanmu tajam sekali!"], "Rion")
@@ -346,7 +344,9 @@ func _check_complete() -> void:
 		await StoryManager.dialogue_finished
 		if not GameManager.collected_fragments.get("terminal", false):
 			await FragmentBox.show_fragment("terminal")
+		puzzle_completed.emit(true)
 	else:
+		puzzle_completed.emit(false)
 		StoryManager.dialogue_box.set_avatar_by_emotion("happy")
 		StoryManager.start_dialogue(["Ada kabel yang korslet! Coba ingat-ingat lagi polanya ya!"], "Rion")
 		get_parent().hide()

@@ -121,5 +121,10 @@ func _on_wire_puzzle_completed(is_correct: bool) -> void:
 			]
 			StoryManager.start_dialogue(lines, "Rion")
 			await StoryManager.dialogue_finished
-		# Setelah dialog tenang selesai, baru buka Rak 2
+		# Lanjutkan cutscene & dialog bersama Tuan Rallux di depan Battery-EC
+		var main_scene = get_tree().current_scene
+		if main_scene and main_scene.has_method("play_battery_ec_cutscene"):
+			await main_scene.play_battery_ec_cutscene()
+
+		# Setelah dialog tenang dan cutscene baterai selesai, baru buka Rak 2
 		GameManager.terminal_puzzle_done = true

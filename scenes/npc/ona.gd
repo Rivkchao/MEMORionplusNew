@@ -95,16 +95,10 @@ func _physics_process(_delta):
 		var rescue_z = player_node.global_position.z if player_node else global_position.z
 		_execute_teleport(Vector3(rescue_x, 0.2, rescue_z), "Penyelamatan darurat dari air sungai")
 
-	# ==========================================
-	# ONA DIGERAKKAN TWEEN CUTSCENE (jangan sentuh posisi & animasinya)
-	# ==========================================
 	if _cutscene_walking:
 		velocity = Vector3.ZERO
 		return
 
-	# ==========================================
-	# ONA SEDANG DIALOG
-	# ==========================================
 	if is_dialogue:
 		velocity.x = 0.0
 		velocity.z = 0.0
@@ -112,9 +106,6 @@ func _physics_process(_delta):
 		play_animation("idle")
 		return
 
-	# ==========================================
-	# ONA MENGIKUTI RION DI SEKITAR POINT 9 / KEBUN
-	# ==========================================
 	if is_following_player:
 		_process_follow_player(_delta)
 		
@@ -198,9 +189,6 @@ func go_to_next_waypoint():
 func waypoint_reached():
 	print("Sampai Point ", current_waypoint + 1)
 
-	# ==========================================
-	# POINT 2 → DIALOG & TELEPORT KE POINT 3
-	# ==========================================
 	if current_waypoint == 1:
 		await point_2_dialog()
 		await teleport_to_point_3()
@@ -208,23 +196,14 @@ func waypoint_reached():
 		go_to_next_waypoint()
 		return
 
-	# ==========================================
-	# POINT 5 → ONA SELESAI SAMPAI DI POINT 5
-	# ==========================================
 	if current_waypoint == 4:
 		await point_5_reached()
 		return
 
-	# ==========================================
-	# POINT 6 → DIALOG SUNGAI DERAS & RUTE
-	# ==========================================
 	if current_waypoint == 5:
 		await point_6_reached()
 		return
 
-	# ==========================================
-	# POINT 7 → DEPAN SUNGAI / KONSOL BATU
-	# ==========================================
 	if current_waypoint == 6:
 		is_moving = false
 		velocity = Vector3.ZERO
@@ -236,16 +215,10 @@ func waypoint_reached():
 			rock_area.check_trigger()
 		return
 
-	# ==========================================
-	# POINT 9 → DEPAN BENGKEL LABORATORIUM
-	# ==========================================
 	if current_waypoint == 8:
 		await point_9_reached()
 		return
 
-	# ==========================================
-	# LANJUT KE POINT BERIKUTNYA
-	# ==========================================
 	current_waypoint += 1
 	go_to_next_waypoint()
 
@@ -575,7 +548,7 @@ func point_8_sequence() -> void:
 	else:
 		dynamic_dialogue.append("Ona: Analisis emosi terdeteksi: Kelelahan dan frustrasi. Emosi itu sepenuhnya wajar, Rion. Beradaptasi dengan hal yang baru memang membutuhkan energi mental yang besar.")
 		dynamic_dialogue.append("Ona: Reset sistem bukan berarti kamu gagal. Yang terpenting, kamu menarik napas, mencoba lagi, dan buktinya... sekarang kakimu sudah menapak di tanah seberang ini.")
-		dynamic_dialogue.append("Rion: (Tersenyum tipis) Makasih, Ona. Mendengarnya bikin dadaku terasa lebih lega.")
+		dynamic_dialogue.append("Rion: Makasih, Ona. Mendengarnya bikin dadaku terasa lebih lega.")
 
 	StoryManager.start_dialogue(dynamic_dialogue, "Rion")
 	await StoryManager.dialogue_finished
@@ -602,7 +575,7 @@ func point_8_sequence() -> void:
 	# 6. Update HUD dan Ona Berjalan ke Point 9
 	var hud = get_parent().find_child("HUD", true, false)
 	if hud and hud.has_method("set_objective"):
-		hud.set_objective("Ikuti Ona menuju Bengkel Laboratorium Antariksa")
+		hud.set_objective("Ikuti Ona menuju Bengkel Rallux")
 
 	if waypoints.size() > 8 and waypoints[8]:
 		speed = 8.0
@@ -613,7 +586,6 @@ func point_9_reached() -> void:
 	is_moving = false
 	velocity = Vector3.ZERO
 	play_animation("idle")
-	print("Ona telah sampai di Point 9 (Depan Bengkel Laboratorium)!")
 
 	# Tunggu Rion mendekat jika masih jauh
 	var player = get_parent().find_child("Player", true, false)
@@ -632,11 +604,10 @@ func point_9_reached() -> void:
 	# Set objective pintu bengkel
 	var hud = get_parent().find_child("HUD", true, false)
 	if hud and hud.has_method("set_objective"):
-		hud.set_objective("Masuk ke dalam Bengkel Laboratorium Antariksa (Tekan E di Pintu)")
+		hud.set_objective("Masuk ke dalam Bengkel Rallux")
 
 	# Aktifkan Ona mengikuti Rion di sekitar Point 9
 	is_following_player = true
-	print("Ona sekarang dalam mode mengikuti Rion di sekitar Point 9.")
 
 func point_9_dialog() -> void:
 	is_dialogue = true
@@ -645,7 +616,7 @@ func point_9_dialog() -> void:
 
 	var dialogue_lines: Array[String] = [
 		"Ona: Kita sudah sampai di depan Bengkel Laboratorium Antariksa. Tuan Rallux ada di dalam.",
-		"Rion: (Langkah kakinya melambat, lalu berhenti sepenuhnya. Matanya menatap pintu bengkel yang besar dengan cemas) Ona... tunggu.",
+		"Rion: Ona... tunggu.",
 		"Ona: Ada apa, Rion? Sensor motormu mendeteksi penurunan kecepatan secara drastis.",
 		"Rion: Aku... aku takut.",
 		"Ona: Takut? Pemindaian lingkungan: Bebas bahaya. Tidak ada radiasi liar atau monster antariksa di sekitar sini.",
@@ -660,7 +631,7 @@ func point_9_dialog() -> void:
 		"Ona: Kita bisa masuk pelan-pelan. Aku akan terus berdiri tepat di sampingmu. Kalau suasananya terasa terlalu ramai atau membuatmu kewalahan, kamu boleh memberitahuku kapan saja, dan kita bisa melangkah mundur untuk istirahat sejenak di luar.",
 		"Rion: Jadi... aku gak harus memaksakan diri kalau merasa gak nyaman?",
 		"Ona: Tentu saja tidak. Kamu selalu punya kendali atas langkahmu sendiri. Tapi kamu tidak akan sendirian. Aku bersamamu.",
-		"Rion: (Menghela napas panjang, meremas jemarinya perlahan lalu menatap Ona) Oke... Berdiri di sampingku terus ya, Ona? Jangan tinggalin aku.",
+		"Rion: Oke... Berdiri di sampingku terus ya, Ona? Jangan tinggalin aku.",
 		"Ona: Dipahami. Protokol Pendampingan Penuh aktif. Aku tidak akan ke mana-mana.",
 		"Ona: Saat kamu sudah merasa siap, ayo kita buka pintunya dan melangkah masuk bersama-sama."
 	]
@@ -964,7 +935,6 @@ func _start_scene_5_garden_sequence() -> void:
 		"Ona: Karena nektar bunganya sudah matang dan layak untuk kita petik.",
 		"Rion: Pluk. Hangat dan lembut banget pas dipegang... Rasanya telapak tanganku jadi kesemutan geli. Ternyata tanaman di planet ini unik-unik banget ya.",
 		"Ona: Sensor optikku mencatatnya sebagai pendaran cahaya yang stabil, dan aromanya menenangkan sistem sirkulasi energiku.",
-		"Ona: (Ona terdiam sejenak, memandangi bunga di tangannya dengan pandangan reflektif)",
 		"Ona: Rion... sebagai seonggok mesin yang terbuat dari logam dan kabel, terkadang aku merasa sangat penasaran... Seperti apa sebenarnya rasanya memiliki emosi di dalam hati?",
 		"Rion: Eh? Rasa emosi?",
 		"Ona: Iya. Sistemku hanya punya kalkulasi angka dan logika data. Tapi makhluk hidup sepertimu bisa merasakan banyak hal. Misalnya... hal apa sih yang biasanya paling bikin kamu merasa marah atau kesal?"
@@ -1003,11 +973,11 @@ func _start_scene_5_garden_sequence() -> void:
 		"Rion: Iya... rasanya kayak ada uap panas yang mau meledak keluar dari kepala kalau lagi kesal.",
 		"Ona: Itulah kenapa Tuan Rallux sangat hebat dalam menjaga emosi. Dulu, waktu aku baru pertama kali dirakit dan sistem kendaliku sering eror, aku pernah tanpa sengaja menjatuhkan setumpuk tabung kristal penelitian sampai pecah berantakan.",
 		"Rion: Hah?! Terus Tuan Rallux ngapain? Marah besar gak?!",
-		"Ona: (Menggeleng pelan) Sama sekali tidak. Beliau tidak pernah membiarkan kemarahan merusak keadaan. Beliau langsung memeriksa tanganku dan bertanya, 'Ona, kamu kaget ya?'",
+		"Ona: Sama sekali tidak. Beliau tidak pernah membiarkan kemarahan merusak keadaan. Beliau langsung memeriksa tanganku dan bertanya, 'Ona, kamu kaget ya?'",
 		"Ona: Beliau selalu bilang, barang yang rusak selalu bisa diperbaiki atau diganti, tapi perasaan kita jauh lebih berharga. Beliau sangat suka teka-teki, suka meracik ube matcha, dan paling senang menyambut teman baru.",
-		"Rion: (Tersenyum lega) Wah... ternyata Tuan Rallux memang sebaik dan sehangat itu ya... Aku jadi ngerasa tenang banget sekarang.",
+		"Rion: Wah... ternyata Tuan Rallux memang sebaik dan sehangat itu ya... Aku jadi ngerasa tenang banget sekarang.",
 		"Ona: Tentu saja! Makanya, yuk tarik napas dalam-dalam... Nikmati segarnya angin dan pemandangan kebun yang tenang ini.",
-		"Rion: (Menarik napas panjang lalu mengembuskannya) Sejuk banget. Badanku rasanya jauh lebih ringan sekarang."
+		"Rion: Sejuk banget. Badanku rasanya jauh lebih ringan sekarang."
 	]
 
 	# Sisipkan balasan Ona (regulasi positif dari AI/NLP) di awal dialog
@@ -1123,7 +1093,7 @@ func trigger_flower_memory_evaluation() -> void:
 
 	# Ona menyambut Rion
 	var eval_intro: Array[String] = [
-		"Ona: (Menyambut Rion dengan senyum ramah) Kerja bagus, Rion! Kamu sudah menjelajahi kebun dengan teliti. Nah, sebelum kita bawa keranjang ini masuk ke dalam, coba kita ingat-ingat sebentar apa yang sudah kita kumpulkan.",
+		"Ona: Kerja bagus, Rion! Kamu sudah menjelajahi kebun dengan teliti. Nah, sebelum kita bawa keranjang ini masuk ke dalam, coba kita ingat-ingat sebentar apa yang sudah kita kumpulkan.",
 		"Rion: Boleh! Ingat-ingat tentang apa, Ona?",
 		"Ona: Saat berkeliling tadi, kamu memetik berapa banyak tangkai bunga untuk dimasukkan ke dalam keranjang?"
 	]
@@ -1137,9 +1107,6 @@ func trigger_flower_memory_evaluation() -> void:
 
 	if reflection_dialog and reflection_dialog.has_method("show_count_evaluation_prompt"):
 		reflection_dialog.show_count_evaluation_prompt()
-		# CATATAN: lambda GDScript meng-capture variabel lokal BY VALUE, sehingga menulis
-		# ke variabel luar dari dalam lambda tidak berpengaruh. Hasil harus diambil
-		# langsung dari sinyal, kalau tidak jawaban benar akan selalu dianggap salah.
 		var res_count: Array = await reflection_dialog.count_evaluation_submitted
 		if res_count.size() >= 4:
 			count_exact = bool(res_count[1])
@@ -1151,7 +1118,7 @@ func trigger_flower_memory_evaluation() -> void:
 	if count_exact:
 		count_response_lines = [
 			"Ona: Tepat sekali! Ada %d tangkai bunga di keranjangmu. Memorimu bekerja dengan sangat jeli, Rion." % total_bunga,
-			"Rion: (Tersenyum bangga) Hehe, aku beneran hitung satu per satu tadi pas memetiknya!"
+			"Rion: Hehe, aku beneran hitung satu per satu tadi pas memetiknya!"
 		]
 	else:
 		count_response_lines = [
@@ -1183,9 +1150,9 @@ func trigger_flower_memory_evaluation() -> void:
 	var color_response_lines: Array[String] = []
 	if color_correct:
 		color_response_lines = [
-			"Ona: (Tersenyum bangga dan bertepuk tangan pelan) Tepat sekali, Rion! Bunganya berwarna biru kosmik yang berkilau lembut.",
+			"Ona: Tepat sekali, Rion! Bunganya berwarna biru kosmik yang berkilau lembut.",
 			"Ona: Daya ingat dan pengamatan visualmu sangat hebat! Kamu memperhatikan detail warnanya dengan jeli meski kita tadi asyik berkeliling.",
-			"Rion: (Tersenyum lebar) Hehe, iya! Pendaran warna birunya kelihatan cantik banget kayak bintang malam di langit.",
+			"Rion: Hehe, iya! Pendaran warna birunya kelihatan cantik banget kayak bintang malam di langit.",
 			"Ona: Warna biru yang menenangkan ini pasti akan membuat meja kerja di dalam bengkel terasa lebih hidup dan nyaman."
 		]
 	else:
@@ -1263,23 +1230,13 @@ func _run_sleep_transition(player: Node3D) -> void:
 	# Tampilkan teks narasi tidur selama 3.5 detik
 	await get_tree().create_timer(3.5).timeout
 
-	# JEDA HENING 2 DETIK
-	label.modulate.a = 0.0
-	await get_tree().create_timer(2.0).timeout
+	# Sembunyikan teks narasi tidur
+	var tw_label_out = create_tween()
+	tw_label_out.tween_property(label, "modulate:a", 0.0, 0.8)
+	await tw_label_out.finished
+	await get_tree().create_timer(1.0).timeout
 
-	# TEKS MUNCUL DI TENGAH LAYAR: KEESOKAN HARINYA... Selama 3 detik
-	label.text = "☀️ KEESOKAN HARINYA..."
-	label.add_theme_font_size_override("font_size", 32)
-	label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4, 1.0))
-	var tw_txt = create_tween()
-	tw_txt.tween_property(label, "modulate:a", 1.0, 0.8)
-	await get_tree().create_timer(3.0).timeout
-
-	# Selesai transisi tidur
-	GameManager.sleep_transition_done = true
-	print("[Ona] Transisi tidur Scene 5 selesai.")
-
-	# Langsung ke kilas balik Rallux di LEV1 (jangan tampilkan Rion di kebun lagi).
+	# 1. Langsung ke kilas balik Rallux di LEV1 (grayscale flashback scene) DAHULU
 	var level := get_parent()
 	if level and level.has_method("_get_or_create_fade_rect"):
 		var level_fade = level._get_or_create_fade_rect()
@@ -1290,8 +1247,45 @@ func _run_sleep_transition(player: Node3D) -> void:
 		fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if is_instance_valid(overlay):
 		overlay.queue_free()
+
 	if level and level.has_method("_play_lev1_flashback"):
 		await level._play_lev1_flashback()
+
+	# 2. SETELAH KILAS BALIK LEV1 SELESAI: Layar hitam, baru fade in teks "☀️ KEESOKAN HARINYA..."
+	var morning_layer := CanvasLayer.new()
+	morning_layer.layer = 125
+	var morning_bg := ColorRect.new()
+	morning_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	morning_bg.color = Color.BLACK
+	morning_layer.add_child(morning_bg)
+
+	var morning_center := CenterContainer.new()
+	morning_center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	morning_layer.add_child(morning_center)
+
+	var morning_label := Label.new()
+	morning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	morning_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	morning_label.text = "☀️ KEESOKAN HARINYA..."
+	morning_label.add_theme_font_size_override("font_size", 34)
+	morning_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4, 1.0))
+	morning_label.modulate.a = 0.0
+	morning_center.add_child(morning_label)
+	add_child(morning_layer)
+
+	var tw_morning = create_tween()
+	tw_morning.tween_property(morning_label, "modulate:a", 1.0, 0.8)
+	await get_tree().create_timer(3.0).timeout
+
+	var tw_morning_out = create_tween()
+	tw_morning_out.tween_property(morning_label, "modulate:a", 0.0, 0.8)
+	await tw_morning_out.finished
+
+	morning_layer.queue_free()
+
+	# Selesai transisi tidur & kilas balik
+	GameManager.sleep_transition_done = true
+	print("[Ona] Transisi tidur Scene 5 & Kilas Balik selesai.")
 
 	# Pagi berikutnya: pindah ke bengkel R1 untuk adegan masa kini & misi beres-beres.
 	GameManager.set_spawn_override(Vector3(-68.10683, 0.114290714, -43.697), "R1")
