@@ -81,6 +81,11 @@ func _setup_gameplay_state() -> void:
 		else:
 			hud.visible = true
 
+	# Pastikan NavigationLink3D aktif jika puzzle batu sudah selesai, atau nonaktif jika belum
+	var nav_link = find_child("NavigationLink3D", true, false)
+	if nav_link:
+		nav_link.enabled = GameManager.rock_puzzle_done
+
 	# Khusus LEV1: pastikan kapsul tetap di lokasi mendarat dan api tetap menyala
 	if has_node("RocketCamera"):
 		var capsule = find_child("RionCapsule", true, false)

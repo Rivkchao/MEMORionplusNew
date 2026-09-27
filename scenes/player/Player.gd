@@ -48,6 +48,11 @@ func _ready() -> void:
 		if new_pos != Vector3.ZERO:
 			global_position = new_pos
 	last_safe_position = global_position
+	
+	# Pengaturan pergerakan di lereng/bukit miring agar stabil & tidak terseret
+	floor_constant_speed = true
+	floor_snap_length = 0.3
+	floor_stop_on_slope = true
 
 func pick_up_item(item: Carryable3D) -> void:
 	if held_item != null:
@@ -185,31 +190,87 @@ func _handle_movement(delta: float) -> void:
 
 	var move_dir = (forward * -input_dir.y + right * input_dir.x).normalized()
 
-	# --- BAGIAN YANG DIUBAH / DITAMBAHKAN ---
+	# --- VALIDASI BATASAN JALUR NAV MESH TERRAIN3D & PENYEBERANGAN SUNGAI ---
 	var target_velocity = move_dir * current_speed
 	
 	# Hitung perkiraan posisi tujuan berdasarkan input frame ini
 	var current_pos = global_position
 	var intended_pos = current_pos + Vector3(target_velocity.x, 0, target_velocity.z) * delta
 	
-	# Ambil navigation map dari World3D untuk validasi nav mesh Terrain3D (hanya jika ada region nav mesh aktif)
+	# Ambil navigation map dari World3D untuk validasi nav mesh Terrain3D
 	var nav_map: RID = get_world_3d().navigation_map
 	var regions := NavigationServer3D.map_get_regions(nav_map)
 	if regions.size() > 0:
-		var constrained_pos = NavigationServer3D.map_get_closest_point(nav_map, intended_pos)
+		# Deteksi apakah berada di area penyeberangan sungai LEV1
+		var river_east_x: float = -18.0
+		var river_west_x: float = -38.5
+		var in_river_zone: bool = (intended_pos.x <= river_east_x and intended_pos.x >= river_west_x) or (current_pos.x <= river_east_x and current_pos.x >= river_west_x)
 		
-		# Sesuaikan arah & kecepatan agar mentok jika menabrak batas nav mesh
-		var safe_dir = (constrained_pos - current_pos) / delta
-		if current_pos.distance_to(constrained_pos) > 0.0001:
-			velocity.x = safe_dir.x
-			velocity.z = safe_dir.z
+		if in_river_zone:
+			var nav_link: NavigationLink3D = get_tree().current_scene.find_child("NavigationLink3D", true, false) if is_inside_tree() else null
+			var is_crossing_unlocked: bool = (nav_link != null and nav_link.enabled) or (RockPuzzleManager and (RockPuzzleManager.is_crossing_active or RockPuzzleManager.has_crossed_river or GameManager.rock_puzzle_done))
+			var link_z: float = nav_link.global_position.z if nav_link else 0.0
+			var max_corridor_width: float = 3.5
+			var is_in_corridor: bool = absf(current_pos.z - link_z) <= (max_corridor_width + 1.0)
+			
+			if is_crossing_unlocked and is_in_corridor:
+				# Jalur penyeberangan sungai aktif: izinkan Rion melompat & melangkah menyeberang
+				var clamped_z = clampf(intended_pos.z, link_z - max_corridor_width, link_z + max_corridor_width)
+				velocity.x = target_velocity.x
+				if absf(clamped_z - current_pos.z) > 0.0001:
+					velocity.z = (clamped_z - current_pos.z) / delta
+				else:
+					velocity.z = 0.0
+			else:
+				# Penyeberangan belum terbuka atau di luar koridor: tahan player di bibir tepi sungai
+				if current_pos.x > river_east_x:
+					intended_pos.x = maxf(intended_pos.x, river_east_x)
+				elif current_pos.x < river_west_x:
+					intended_pos.x = minf(intended_pos.x, river_west_x)
+				
+				var p_ground = NavigationServer3D.map_get_closest_point(nav_map, intended_pos)
+				var p_corrected = NavigationServer3D.map_get_closest_point(nav_map, Vector3(intended_pos.x, p_ground.y, intended_pos.z))
+				var horiz_diff = Vector2(intended_pos.x - p_corrected.x, intended_pos.z - p_corrected.z)
+				var horiz_dist = horiz_diff.length()
+				if horiz_dist > 0.05:
+					var edge_outward = horiz_diff / horiz_dist
+					var outward_speed = Vector2(target_velocity.x, target_velocity.z).dot(edge_outward)
+					if outward_speed > 0.0:
+						velocity.x = target_velocity.x - edge_outward.x * outward_speed
+						velocity.z = target_velocity.z - edge_outward.y * outward_speed
+					else:
+						velocity.x = target_velocity.x
+						velocity.z = target_velocity.z
+				else:
+					velocity.x = target_velocity.x
+					velocity.z = target_velocity.z
 		else:
-			velocity.x = 0.0
-			velocity.z = 0.0
+			# Di daratan (baik sebelum sungai X > -18.0 maupun setelah sungai X < -38.5):
+			# Batasan jalur aktif sepenuhnya mengikuti nav bake mesh Terrain3D
+			# Gunakan koreksi elevasi tanah agar kemiringan bukit tidak mendistorsi pergerakan XZ
+			var p_ground = NavigationServer3D.map_get_closest_point(nav_map, intended_pos)
+			var p_corrected = NavigationServer3D.map_get_closest_point(nav_map, Vector3(intended_pos.x, p_ground.y, intended_pos.z))
+			var horiz_diff = Vector2(intended_pos.x - p_corrected.x, intended_pos.z - p_corrected.z)
+			var horiz_dist = horiz_diff.length()
+			
+			if horiz_dist > 0.05:
+				# Melewati tepi batas jalan: batalkan pergerakan yang mengarah keluar jalur (sliding)
+				var edge_outward = horiz_diff / horiz_dist
+				var outward_speed = Vector2(target_velocity.x, target_velocity.z).dot(edge_outward)
+				if outward_speed > 0.0:
+					velocity.x = target_velocity.x - edge_outward.x * outward_speed
+					velocity.z = target_velocity.z - edge_outward.y * outward_speed
+				else:
+					velocity.x = target_velocity.x
+					velocity.z = target_velocity.z
+			else:
+				# Masih di dalam jalur jalanan bukit: pergerakan 100% alami tanpa tarikan miring
+				velocity.x = target_velocity.x
+				velocity.z = target_velocity.z
 	else:
 		velocity.x = target_velocity.x
 		velocity.z = target_velocity.z
-	# ----------------------------------------
+	# -------------------------------------------------------------------------
 
 func _handle_jump() -> void:
 	if _is_any_ui_active():

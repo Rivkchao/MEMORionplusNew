@@ -76,6 +76,18 @@ func _restore_solved_state() -> void:
 	for slot in slots:
 		if is_instance_valid(slot) and slot.has_method("hide_slot"):
 			slot.hide_slot()
+	
+	_set_nav_link_enabled(true)
+
+func _set_nav_link_enabled(link_enabled: bool) -> void:
+	var root = get_tree().current_scene if is_inside_tree() else null
+	if root == null and get_tree():
+		root = get_tree().root
+	if root:
+		var nav_link = root.find_child("NavigationLink3D", true, false)
+		if nav_link:
+			nav_link.enabled = link_enabled
+			print("NavigationLink3D enabled: ", link_enabled)
 
 func setup_camera(cam_rig: Node3D, puzzle_pos: Vector3) -> void:
 	camera_rig = cam_rig
@@ -361,8 +373,10 @@ func start_river_crossing_phase() -> void:
 	is_crossing_active = true
 	has_said_near_end = false
 	has_crossed_river = false
+	_set_nav_link_enabled(true)
 
-	var ona = get_tree().current_scene.find_child("Ona", true, false)
+	var root = get_tree().current_scene if get_tree().current_scene else get_tree().root
+	var ona = root.find_child("Ona", true, false) if root else null
 	if ona and "waypoints" in ona and ona.waypoints.size() > 6 and ona.waypoints[6]:
 		safe_crossing_pos = ona.waypoints[6].global_position + Vector3(0.5, 0.2, 0.0)
 	elif ona:
