@@ -1103,7 +1103,7 @@ func trigger_flower_memory_evaluation() -> void:
 	# Input Evaluasi 2: Jumlah Bunga
 	var count_exact := false
 	var count_comment := ""
-	var total_bunga := GameManager.collected_flower_count if GameManager else 0
+	var total_bunga: int = GameManager.collected_flower_count if GameManager else 0
 
 	if reflection_dialog and reflection_dialog.has_method("show_count_evaluation_prompt"):
 		reflection_dialog.show_count_evaluation_prompt()

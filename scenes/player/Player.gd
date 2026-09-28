@@ -23,7 +23,7 @@ var last_safe_position: Vector3 = Vector3.ZERO
 @export var hand_point_path: NodePath
 @onready var hand_point: Marker3D = get_node(hand_point_path)
 
-var held_item: Carryable3D = null
+var held_item: Interactable = null
 var auto_target: Vector3 = Vector3.ZERO
 var is_auto_moving: bool = false
 var _footstep_timer: float = 0.0
@@ -54,7 +54,7 @@ func _ready() -> void:
 	floor_snap_length = 0.3
 	floor_stop_on_slope = true
 
-func pick_up_item(item: Carryable3D) -> void:
+func pick_up_item(item: Interactable) -> void:
 	if held_item != null:
 		return
 	
