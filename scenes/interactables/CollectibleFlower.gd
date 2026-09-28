@@ -31,7 +31,7 @@ func _ready() -> void:
 	if label_3d == null:
 		label_3d = get_node_or_null("Label3D")
 	if label_3d:
-		label_3d.text = "✦ Petik Bunga (Tekan E)"
+		label_3d.text = "✦ Petik Bunga ✦"
 		label_3d.hide()
 
 func show_prompt() -> void:
@@ -41,7 +41,7 @@ func show_prompt() -> void:
 		return
 	if label_3d:
 		var is_mobile := SettingsManager != null and SettingsManager.is_mobile_controls_active()
-		label_3d.text = "✦ Petik Bunga (Tekan Aksi)" if is_mobile else "✦ Petik Bunga (Tekan E)"
+		label_3d.text = "✦ Petik Bunga ✦" if is_mobile else "✦ Petik Bunga ✦"
 		label_3d.show()
 
 func hide_prompt() -> void:
@@ -113,4 +113,3 @@ func collect() -> void:
 	tw.tween_property(self, "scale", Vector3(0.1, 0.1, 0.1), 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	await tw.finished
 	queue_free()
-

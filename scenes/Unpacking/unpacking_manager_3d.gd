@@ -29,8 +29,10 @@ var session2_start_time: float = 0.0
 var session2_duration: float = 0.0
 var _door_reminder_cooldown: float = 0.0
 var _is_transitioning: bool = false
+var _is_boundary_returning: bool = false
 
 signal rak1_completed
+
 signal all_completed
 
 func _ready() -> void:
@@ -126,21 +128,91 @@ func _set_container_interaction(container: Node3D, is_active: bool) -> void:
 				else Node.PROCESS_MODE_DISABLED
 			)
 
+func _handle_unpacking_boundary() -> void:
+	if _is_boundary_returning or player == null:
+		return
+	_is_boundary_returning = true
+
+	# 1. Hentikan gerak pemain
+	player.velocity = Vector3.ZERO
+	if player.has_method("set_physics_process"):
+		player.set_physics_process(false)
+
+	# 2. Lepaskan barang jika sedang dibawa
+	if held_item != null:
+		drop_held_item()
+
+	# 3. Cari posisi Point3
+	var p3_pos := Vector3(-7.284, 0.0, -6.486)
+	var scene = get_tree().current_scene
+	if scene:
+		var storypoints = scene.find_child("StoryPointing2", true, false)
+		if storypoints:
+			var p3_node = storypoints.find_child("Point3", true, false)
+			if p3_node:
+				p3_pos = p3_node.global_position
+	p3_pos.y = player.global_position.y
+
+	# 4. Putar Rion menghadap ke arah Point 3
+	var dir_to_p3 := p3_pos - player.global_position
+	dir_to_p3.y = 0.0
+	if dir_to_p3.length_squared() > 0.01:
+		var rion_mesh = player.find_child("RionMesh", true, false)
+		if rion_mesh:
+			rion_mesh.rotation.y = atan2(dir_to_p3.x, dir_to_p3.z)
+
+	# 5. Dialog larangan dari Ona
+	var reminder_lines: Array[String] = [
+		"Ona: \"Eits, Rion! Jangan keluar dulu ya. Ayo kita selesaikan merapikan perkakas di area rak dulu sebelum Tuan Rallux kembali!\""
+	]
+	StoryManager.start_dialogue(reminder_lines, "Ona")
+	await StoryManager.dialogue_finished
+
+	# 6. Arahkan dan gerakkan otomatis Rion kembali ke Point 3
+	var p_anim: AnimationTree = player.find_child("AnimationTree", true, false) as AnimationTree
+	if p_anim:
+		p_anim.set("parameters/StateMachine/Move/blend_position", 0.5)
+
+	var move_tw = create_tween().set_parallel(true)
+	var dist = player.global_position.distance_to(p3_pos)
+	var move_dur = clampf(dist / 4.0, 1.2, 2.6)
+	move_tw.tween_property(player, "global_position", p3_pos, move_dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+	var cam_rig = scene.find_child("CameraRig", true, false) if scene else null
+	if cam_rig:
+		var cam_dest = p3_pos + Vector3(-3.5, 2.3, 3.5)
+		move_tw.tween_property(cam_rig, "global_position", cam_dest, move_dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+	await move_tw.finished
+
+	if p_anim:
+		p_anim.set("parameters/StateMachine/Move/blend_position", 0.0)
+
+	if cam_rig:
+		cam_rig.look_at(player.global_position + Vector3(0.0, 1.2, 0.0), Vector3.UP)
+		if cam_rig.has_method("snap_to_target"):
+			cam_rig.snap_to_target()
+
+	if player.has_method("set_physics_process"):
+		player.set_physics_process(true)
+
+	_door_reminder_cooldown = 4.0
+	_is_boundary_returning = false
+
 func _process(delta: float) -> void:
-	# Pengingat jika Rion berjalan terlalu jauh dari area rak / mendekati pintu keluar sebelum selesai
-	if not GameManager.unpacking_completed and GameManager.r1_morning_intro_done and not _is_transitioning:
+	# Batasan jika Rion berjalan mengarah ke Point 2 atau Point 1 sebelum selesai unpacking
+	if not GameManager.unpacking_completed and GameManager.r1_morning_intro_done and not _is_transitioning and not _is_boundary_returning:
 		if _door_reminder_cooldown > 0.0:
 			_door_reminder_cooldown -= delta
 		elif player != null:
-			var near_door := player.global_position.distance_to(Vector3(-75.35, 0.0, -45.76)) < 25.0
-			var wandering_hallway := player.global_position.x < -20.0 and player.global_position.z < 5.0
-			if near_door or wandering_hallway:
+			var near_door := player.global_position.distance_to(Vector3(-68.1, 0.0, -43.7)) < 35.0
+			var heading_to_p2_or_p1 := player.global_position.x < -14.5
+			if near_door or heading_to_p2_or_p1:
 				var dlg_open: bool = StoryManager.dialogue_box != null and StoryManager.dialogue_box.visible
 				if not dlg_open:
 					_door_reminder_cooldown = 20.0
-					StoryManager.start_dialogue([
-						"Ona: \"Eh, Kapten Rion! Pintu keluar masih tertutup dan Tuan Rallux masih sibuk di kebun. Yuk, kita selesaikan beres-beres barang di rak dulu supaya kejutannya berhasil!\""
-					], "Ona")
+					_handle_unpacking_boundary()
+
 
 	if held_item == null:
 		return
@@ -499,9 +571,9 @@ func _handle_rak1_completed_sequence() -> void:
 
 	if camera_rig:
 		var cam_slide = create_tween().set_parallel(true)
-		cam_slide.tween_property(camera_rig, "global_position", Vector3(-6.4, 2.5, 27.5), 1.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		cam_slide.tween_property(camera_rig, "global_position", Vector3(-6.4, 2.3, 28.5), 1.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		await cam_slide.finished
-		camera_rig.look_at(Vector3(-6.4, 1.4, 37.6), Vector3.UP)
+		camera_rig.look_at(Vector3(-6.4, 1.3, 37.6), Vector3.UP)
 
 	# 6. Setup Gameplay Sesi 2 (Rak Kedua)
 	_setup_phase(2)
@@ -522,6 +594,9 @@ func _handle_rak1_completed_sequence() -> void:
 		var player_cam = camera_rig.find_child("*Camera*", true, false) as Camera3D
 		if player_cam:
 			player_cam.make_current()
+		camera_rig.yaw = PI
+		camera_rig.pitch = 18.0
+		camera_rig.zoom_distance = 4.8
 		if camera_rig.has_method("snap_to_target"):
 			camera_rig.snap_to_target()
 
@@ -565,17 +640,13 @@ func _handle_rak2_completed_sequence() -> void:
 	await StoryManager.dialogue_finished
 
 	# 2. Hadiah Puzzle: Fragmen Memori
-	var frag_lines: Array[String] = [
-		"Rion: \"Waaah... Ona, lihat! Fragmennya muncul lagi! Pas mendekat, rasanya hangat banget di tangan...\"",
-		"Ona: \"Sistem pemindai dataku... masih belum punya catatan tentang benda ini, Rion. Di memoriku, kristal ini tidak terdaftar sama sekali. Tapi anehnya, setiap kali kamu berhasil mengendalikan pikiran turbomu untuk menyelesaikan sebuah tantangan, kristal ini selalu tercipta.\"",
-		"Ona: \"Aku... aku rasanya senang dan bangga sekali melihat caramu berusaha tadi...\""
+	var finish_lines: Array[String] = [
+		"Rion: \"Horeee! Rak kedua sudah beres dan rapi juga!\"",
+		"Ona: \"Hebat sekali, Rion! Sekarang seluruh barang di bengkel sudah berada di tempatnya masing-masing.\""
 	]
-	StoryManager.start_dialogue(frag_lines, "Rion")
+	StoryManager.start_dialogue(finish_lines, "Rion")
 	await StoryManager.dialogue_finished
-	var frag_box_2 = get_node_or_null("/root/FragmentBox")
-	if frag_box_2 and frag_box_2.has_method("show_fragment"):
-		await frag_box_2.show_fragment("unpacking_rak2")
-	else:
+	if GameManager:
 		GameManager.collected_fragments["unpacking_rak2"] = true
 
 	# 3. Tiba-tiba: BZZZZT! — Suara dengungan listrik & glitch Ona
@@ -588,7 +659,7 @@ func _handle_rak2_completed_sequence() -> void:
 	StoryManager.start_dialogue(glitch_lines, "Ona")
 	await StoryManager.dialogue_finished
 
-	# 4. Kedatangan Tuan Rallux (melangkah cepat dari Point 2 ke Point 3 lalu menghadap ke rak)
+	# 4. Kedatangan Tuan Rallux (Kamera dari posisi rak menembak ke arah Kapsul Rion, Rallux dari Point2 ke Point3)
 	var rallux: Node3D = scene.find_child("Rallux", true, false) as Node3D if scene else null
 	var storypoints = scene.find_child("StoryPointing2", true, false) if scene else null
 	var p2_pos := Vector3(-22.378, 0.0, -7.185)
@@ -599,6 +670,57 @@ func _handle_rak2_completed_sequence() -> void:
 		var m3 = storypoints.find_child("Point3", true, false) as Node3D
 		if m3: p3_pos = m3.global_position
 
+	# Cari posisi target Kapsul Rion
+	var cap_target := Vector3(-4.0, 1.5, -39.0)
+	if scene:
+		var k_node = scene.find_child("KapsulRion", true, false) as Node3D
+		if not k_node:
+			k_node = scene.find_child("RionCapsule", true, false) as Node3D
+		if k_node:
+			cap_target = k_node.global_position + Vector3(0.0, 1.5, 0.0)
+
+	# Transisi fade: Kamera langsung ditempatkan di posisi rak menatap ke arah Kapsul Rion (tanpa tween movement)
+	if scene and scene.has_method("_fade_screen_out"):
+		await scene._fade_screen_out(0.4)
+
+	# Posisikan Rion dan Ona di depan rak menatap ke arah Point 3 / Kapsul agar terlihat jelas di kamera
+	var ona_node: Node3D = scene.find_child("Ona", true, false) as Node3D if scene else null
+	if player:
+		player.visible = true
+		player.global_position = Vector3(-4.8, 0.0, 31.5)
+		player.velocity = Vector3.ZERO
+		var d_to_r := p3_pos - player.global_position
+		d_to_r.y = 0.0
+		var rion_mesh = player.get_node_or_null("RionMesh")
+		if rion_mesh:
+			rion_mesh.visible = true
+			if d_to_r.length_squared() > 0.01:
+				rion_mesh.rotation.y = atan2(d_to_r.x, d_to_r.z)
+		var anim_tree: AnimationTree = player.get_node_or_null("AnimationTree")
+		if anim_tree:
+			anim_tree.set("parameters/StateMachine/Move/blend_position", 0.0)
+
+	if ona_node:
+		ona_node.visible = true
+		ona_node.global_position = Vector3(-1.8, 0.0, 31.5)
+		var d_to_r_ona := p3_pos - ona_node.global_position
+		d_to_r_ona.y = 0.0
+		if d_to_r_ona.length_squared() > 0.01:
+			ona_node.rotation.y = atan2(-d_to_r_ona.x, -d_to_r_ona.z)
+		if ona_node.has_method("play_animation"):
+			ona_node.play_animation("idle")
+
+	if camera_rig:
+		camera_rig.global_position = Vector3(-3.0, 2.6, 36.5)
+		camera_rig.look_at(cap_target, Vector3.UP)
+
+	var ral_at := rallux.get_node_or_null("AnimationTree") as AnimationTree if rallux else null
+	if ral_at == null and rallux:
+		ral_at = rallux.find_child("AnimationTree", true, false) as AnimationTree
+	var ral_ap := rallux.get_node_or_null("AnimationPlayer") as AnimationPlayer if rallux else null
+	if ral_ap == null and rallux:
+		ral_ap = rallux.find_child("AnimationPlayer", true, false) as AnimationPlayer
+
 	if rallux:
 		rallux.visible = true
 		rallux.scale = Vector3(8.0, 8.0, 8.0)
@@ -607,75 +729,107 @@ func _handle_rak2_completed_sequence() -> void:
 		dir_to_p3.y = 0.0
 		if dir_to_p3.length_squared() > 0.01:
 			rallux.rotation.y = atan2(dir_to_p3.x, dir_to_p3.z)
-		if rallux.has_method("play_animation"):
+
+		# Nonaktifkan AnimationTree sementara dan paksa loop "run" pada AnimationPlayer agar tidak sliding
+		if ral_at:
+			ral_at.active = false
+		if ral_ap:
+			var run_anim := ral_ap.get_animation("run")
+			if run_anim:
+				run_anim.loop_mode = Animation.LOOP_LINEAR
+			ral_ap.play("run")
+		elif rallux.has_method("play_animation"):
 			rallux.play_animation("run")
 
-		if camera_rig:
-			var cam_tw = create_tween().set_parallel(true)
-			cam_tw.tween_property(camera_rig, "global_position", p3_pos + Vector3(-5.5, 3.2, 3.5), 1.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-			camera_rig.look_at(p3_pos + Vector3(0.0, 1.4, 0.0), Vector3.UP)
+	# Fade in kamera langsung menyorot dari rak ke arah kapsul / lorong kedatangan
+	if scene and scene.has_method("_fade_screen_in"):
+		await scene._fade_screen_in(0.4)
 
-		var run_dist := p2_pos.distance_to(p3_pos)
-		var run_dur := clampf(run_dist / 6.0, 1.5, 2.8)
-		var tw = create_tween()
-		tw.tween_property(rallux, "global_position", p3_pos, run_dur).set_trans(Tween.TRANS_LINEAR)
-		await tw.finished
+	# Rallux melangkah dari Point 2 ke Point 3 dengan pergerakan frame-by-frame
+	if rallux:
+		var speed: float = 7.0
+		var prev_time := Time.get_ticks_msec()
+		var time_limit := Time.get_ticks_msec() + int((p2_pos.distance_to(p3_pos) / speed) * 1000.0) + 3000
+		while rallux.global_position.distance_to(p3_pos) > 0.2:
+			if Time.get_ticks_msec() > time_limit:
+				break
+			var now_time := Time.get_ticks_msec()
+			var dt := clampf((now_time - prev_time) / 1000.0, 0.0, 0.1)
+			prev_time = now_time
+			var cur_dir := p3_pos - rallux.global_position
+			cur_dir.y = 0.0
+			if cur_dir.length_squared() > 0.01:
+				rallux.rotation.y = lerp_angle(rallux.rotation.y, atan2(cur_dir.x, cur_dir.z), 12.0 * dt)
+			rallux.global_position = rallux.global_position.move_toward(p3_pos, speed * dt)
+			await get_tree().physics_frame
+		rallux.global_position = p3_pos
 
-		rallux.rotation.y = atan2(0.0, 1.0)
+		# Sampai di Point 3, Rallux berbalik menghadap ke arah rak (+Z)
+		var dir_to_rak := Vector3(0.0, 0.0, 1.0)
+		rallux.rotation.y = atan2(dir_to_rak.x, dir_to_rak.z)
+		if ral_ap:
+			ral_ap.stop()
+		if ral_at:
+			ral_at.active = true
 		if rallux.has_method("play_animation"):
 			rallux.play_animation("idle")
+		elif ral_ap:
+			var idle_anim = ral_ap.get_animation("idle")
+			if idle_anim:
+				idle_anim.loop_mode = Animation.LOOP_LINEAR
+			ral_ap.play("idle")
 
-	# Rion dan Ona berbalik menghadap ke arah Tuan Rallux di Point 3
+	# Pastikan Rion dan Ona tetap menghadap ke arah Tuan Rallux di Point 3
 	if player:
 		var d_to_r := p3_pos - player.global_position
 		d_to_r.y = 0.0
 		var rion_mesh = player.get_node_or_null("RionMesh")
 		if rion_mesh and d_to_r.length_squared() > 0.01:
 			rion_mesh.rotation.y = atan2(d_to_r.x, d_to_r.z)
-	var ona_node: Node3D = scene.find_child("Ona", true, false) as Node3D if scene else null
 	if ona_node:
-		var d_to_r := p3_pos - ona_node.global_position
-		d_to_r.y = 0.0
-		if d_to_r.length_squared() > 0.01:
-			ona_node.rotation.y = atan2(d_to_r.x, d_to_r.z)
+		var d_to_r_ona := p3_pos - ona_node.global_position
+		d_to_r_ona.y = 0.0
+		if d_to_r_ona.length_squared() > 0.01:
+			ona_node.rotation.y = atan2(-d_to_r_ona.x, -d_to_r_ona.z)
 
-	# 5. Dialog apresiasi Tuan Rallux
+	# 5. Dialog apresiasi Tuan Rallux dan pamitan Ona istirahat baterai
 	var rallux_arrival_dialog: Array[String] = [
 		"Rallux: \"Wah, wah, wah! Luar biasa rapi banget ini! Hebat, hebat sekali!\"",
-		"Rallux: \"Lantai bengkel yang tadi pagi kayak kapal pecah penuh ranjau baut... sekarang kinclong begini?! Siapa kapten hebat yang menyulap ruangan ini jadi sekeren dan setertata ini?!\"",
+		"Rallux: \"Lantai bengkel yang tadi pagi penuh barang berserakan... sekarang kinclong begini?! Siapa kapten hebat yang menyulap ruangan ini jadi sekeren dan setertata ini?!\"",
 		"Rion: \"Aku sama Ona, Tuan Rallux! Tadi kami masukkan semuanya ke rak kiri dan rak kanan!\"",
-		"Rallux: \"Keren banget kamu, Rion! Kakek beneran kagum dan bangga sekali! Menata barang sebanyak dan seberantakan tadi itu butuh ketelitian, kesabaran, dan fokus yang juara. Kamu membuktikan kalau pesawat turbo di kepalamu itu punya pilot yang hebat dan bisa bekerja sangat rapi!\"",
-		"Ona: \"Rion menyelesaikannya dengan mandiri dan tenang, Tuan Rallux.\"",
+		"Rallux: \"Keren banget kamu, Rion! Aku beneran kagum dan bangga sekali! Menata barang sebanyak dan seberantakan tadi itu butuh ketelitian, kesabaran, dan fokus yang juara.\"",
+		"Ona: \"Rion menyelesaikannya dengan mandiri, tekun, dan tenang, Tuan Rallux.\"",
 		"Rion: \"Hehe... seru kok, Tuan Rallux! Rasanya plong banget pas lihat semua barangnya sudah duduk rapi di tempatnya.\"",
 		"Rallux: \"Ruangan yang tertata selalu bikin pikiran kita ikutan adem, kan? Kamu sudah bikin suasana bengkel ini jadi jauh lebih cerah hari ini.\"",
-		"Rallux: \"Oho... dan aku lihat, ada cahaya yang ikut berpendar di sakumu.\"",
-		"Rion: \"Eh, iya! Pas raknya beres kami rapikan, tiba-tiba fragmen ini muncul lagi! Ona bilang datanya gak tahu fragmen apa ini. Tuan Rallux tahu ini benda apa?\"",
-		"Rallux: \"Belum saatnya kamu mengetahui itu sekarang, petualang kecil. Yang paling penting, jaga benda itu baik-baik di sakumu. Jangan sampai hilang ya. Suatu saat nanti, kamu pasti akan sangat membutuhkannya.\"",
-		"Rion: \"Siap! Bakal aku jaga baik-baik, Tuan Rallux!\"",
-		"Rallux: \"Pintar! Nah, berhubung kejutan kalian luar biasa sukses dan bengkel ini sudah bersih rapi, ayo kita istirahat sejenak sambil merencanakan petualangan kita berikutnya!\""
+		"Ona: \"Bip... bip... Tuan Rallux, Rion... Indikator daya bateraiku sudah berkedip merah di bawah sepuluh persen. Bolehkah aku pamit istirahat sebentar untuk mengisi daya di Ruang Perakitanku?\"",
+		"Rallux: \"Tentu saja, Ona tersayang! Kamu sudah bekerja sangat keras membantu bengkel hari ini. Istirahatlah di dok pengisi dayamu sampai energimu pulih seratus persen ya.\"",
+		"Rion: \"Terima kasih banyak ya, Ona! Kamu robot sahabat terbaikku. Istirahat yang nyenyak ya! Nanti kalau bateraimu sudah penuh, kita main lagi!\"",
+		"Ona: \"Sama-sama, Rion! Semangat ya. Aku ke ruanganku dulu untuk mengisi daya.\"",
+		"Rallux: \"Nah, Rion! Berhubung Ona sedang istirahat dan bengkel sudah rapi, sekarang ayo ikuti aku menuju Ruang Kontrol Daya. Ada hal penting di sana yang butuh bantuan tangan cekatanmu!\"",
+		"Rion: \"Siap, Tuan Rallux! Ayo kita ke Ruang Kontrol Daya!\""
 	]
 	StoryManager.start_dialogue(rallux_arrival_dialog, "Rallux")
 	await StoryManager.dialogue_finished
 
-	# 6. Selesaikan unpacking dan beralih ke objective tuas ruang crusher
+	# 6. Selesaikan unpacking, pindahkan Ona ke dok OnaProgramRoom, dan arahkan ke Ruang Kontrol Daya
 	GameManager.unpacking_completed = true
-	GameManager.ona_hold_position = false
-	GameManager.set_objective("Nyalakan tuas lampu di Ruang Crusher", 0, "")
-	all_completed.emit()
+	GameManager.ona_hold_position = true
+	GameManager.set_objective("Perbaiki kabel terminal di Ruang Kontrol Daya", 0, "")
+	
+	# Posisikan Ona di dok pengisian daya di dalam OnaProgramRoom
+	if ona_node:
+		ona_node.global_position = Vector3(-44.817, 0.2, 23.553)
+		ona_node.rotation = Vector3.ZERO
+		if ona_node.has_method("play_animation"):
+			ona_node.play_animation("idle")
 
+	all_completed.emit()
 	_is_transitioning = false
 	waiting_for_dialog = false
 
-	var camera_rig_final = scene.find_child("CameraRig", true, false) if scene else null
-	if player:
-		player.set_physics_process(true)
-		player.set_process_unhandled_input(true)
-	if camera_rig_final:
-		camera_rig_final.set_physics_process(true)
-		camera_rig_final.set_process(true)
-		camera_rig_final.set_process_unhandled_input(true)
-		if camera_rig_final.has_method("snap_to_target"):
-			camera_rig_final.snap_to_target()
+	# Langsung transisi fade in ke depan Terminal Daya di Ruang Kontrol Daya
+	if scene and scene.has_method("transition_to_terminal"):
+		await scene.transition_to_terminal()
 
 func continue_to_next_phase() -> void:
 	if current_phase == 1:

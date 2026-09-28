@@ -159,7 +159,7 @@ func _process(delta: float) -> void:
 		if _pull_sound_timer >= 0.22 and progress < 1.0:
 			_pull_sound_timer = 0.0
 			if AudioManager:
-				var pitch := lerp(0.85, 1.35, progress)
+				var pitch: float = lerpf(0.85, 1.35, progress)
 				AudioManager.play_lever_ratchet(pitch, -4.0)
 
 		if progress_label:
@@ -168,6 +168,10 @@ func _process(delta: float) -> void:
 
 		if lever_handle:
 			lever_handle.rotation_degrees.z = lerp(initial_rot_z, initial_rot_z + target_down_angle, progress)
+
+		# Kecerahan ruangan naik perlahan dari gelap (0.05) ke terang (bright_ambient_energy) seiring tarikan tuas 0% -> 100%
+		if world_environment and world_environment.environment:
+			world_environment.environment.ambient_light_energy = lerpf(0.05, bright_ambient_energy, progress)
 
 		if progress >= 1.0:
 			complete_lever()
@@ -186,6 +190,8 @@ func _process(delta: float) -> void:
 				progress_label.text = str(int(progress * 100.0)) + "%"
 				if progress <= 0.0:
 					progress_label.text = hold_prompt
+			if world_environment and world_environment.environment:
+				world_environment.environment.ambient_light_energy = lerpf(0.05, bright_ambient_energy, progress)
 
 
 func complete_lever() -> void:
@@ -223,25 +229,101 @@ func complete_lever() -> void:
 	
 	var is_crusher := "crusher" in get_parent().name.to_lower()
 	var frag_key := "lever_crusher" if is_crusher else "lever_onaprogram"
-	var dialogue_text := "Daya Ruang Crusher aktif kembali! Mesin-mesin mulai menyala!" if is_crusher else "Ruang Program Ona telah aktif! Sistem komputer mulai membaca data!"
 
-	if StoryManager.dialogue_box != null:
-		StoryManager.dialogue_box.set_avatar_by_emotion("kagum")
-		StoryManager.start_dialogue([dialogue_text], "Rion")
-		await StoryManager.dialogue_finished
+	if is_crusher:
+		var scene_cr := get_tree().current_scene
+		var cam_cr: Node3D = scene_cr.find_child("CameraRig", true, false) as Node3D if scene_cr else null
+		if cam_cr:
+			var crusher_room = scene_cr.find_child("CrusherRoom", true, false)
+			var microwave = crusher_room.find_child("SM_Microwave", true, false) as Node3D if crusher_room else null
+			if not microwave and crusher_room:
+				microwave = crusher_room.find_child("Crusher", true, false) as Node3D
+			var cam_pos = microwave.global_position + Vector3(4.5, 3.8, 3.2) if microwave else Vector3(-30.0, 3.8, -31.5)
+			var lever_pos = lever_handle.global_position if lever_handle else global_position
+			cam_cr.global_position = cam_pos
+			cam_cr.look_at(lever_pos + Vector3(0.0, 1.0, 0.0), Vector3.UP)
+
+		if StoryManager and StoryManager.has_method("start_dialogue"):
+			StoryManager.start_dialogue([
+				"Rallux: \"Wah, hebat sekali, Rion! Ruang Crusher sudah terang benderang kembali!\"",
+				"Rion: \"Mesin-mesin daur ulang mulai aktif dan suasananya jadi terang dan aman!\"",
+				"Rallux: \"Pintar sekali! Sekarang, ayo kita lanjutkan ke Ruang Perakitan Ona. Kita nyalakan tuas lampu di sana, sekalian menjenguk Ona yang sedang mengisi daya!\"",
+				"Rion: \"Asyik! Ayo kita ke Ruang Perakitan Ona, semoga baterainya sudah penuh!\""
+			], "Rallux")
+			await StoryManager.dialogue_finished
+
 		if not GameManager.collected_fragments.get(frag_key, false):
 			await FragmentBox.show_fragment(frag_key)
 
-	# Objective per game + dramatisasi lanjutan
-	if is_crusher:
-		GameManager.set_objective("Tarik Tuas di Ona Program Room", 0, "")
-	elif not GameManager.terminal_puzzle_done:
-		GameManager.set_objective("Nyalakan Terminal di Ruang Energy Core", 0, "")
+		# Transisi fade in langsung ke Ruang Perakitan & Pemrograman Ona
+		if scene_cr and scene_cr.has_method("transition_to_onaprogram_lever"):
+			await scene_cr.transition_to_onaprogram_lever()
+		else:
+			if cam_cr:
+				cam_cr.set_physics_process(true)
+				cam_cr.set_process(true)
+				cam_cr.set_process_unhandled_input(true)
+				if cam_cr.has_method("snap_to_target"):
+					cam_cr.snap_to_target()
+			GameManager.set_objective("Nyalakan tuas lampu di Ruang Perakitan Ona", 0, "")
+	else:
+		# Ruang Ona Program: Rion menyalakan tuas dan menjenguk Ona yang sedang recharge
+		var scene := get_tree().current_scene
+		var ona: Node3D = scene.find_child("Ona", true, false) if scene else null
+		var rallux: Node3D = scene.find_child("Rallux", true, false) as Node3D if scene else null
+		var camera_rig: Node3D = scene.find_child("CameraRig", true, false) as Node3D if scene else null
+
+		if ona and ona.has_method("play_animation"):
+			ona.play_animation("idle")
+
+		# Posisikan Rallux berdiri bersama Rion di depan dok Ona
+		if ona and player_node:
+			var dir_to_ona: Vector3 = ona.global_position - player_node.global_position
+			dir_to_ona.y = 0.0
+			var rion_mesh = player_node.get_node_or_null("RionMesh")
+			if rion_mesh and dir_to_ona.length_squared() > 0.01:
+				rion_mesh.rotation.y = atan2(dir_to_ona.x, dir_to_ona.z)
+
+			if rallux:
+				rallux.visible = true
+				rallux.global_position = player_node.global_position + Vector3(-1.8, 0.0, 0.5)
+				rallux.scale = Vector3(8.0, 8.0, 8.0)
+				var dir_r_ona: Vector3 = ona.global_position - rallux.global_position
+				dir_r_ona.y = 0.0
+				if dir_r_ona.length_squared() > 0.01:
+					rallux.rotation.y = atan2(dir_r_ona.x, dir_r_ona.z)
+				if rallux.has_method("play_animation"):
+					rallux.play_animation("idle")
+
+		# Transisi kamera menyorot hangat ke arah Ona di dok dan Rion/Rallux
+		if camera_rig and ona and player_node:
+			camera_rig.set_physics_process(false)
+			camera_rig.set_process(false)
+			var mid_point: Vector3 = (ona.global_position + player_node.global_position) * 0.5
+			var cam_target: Vector3 = mid_point + Vector3(-3.8, 1.8, 1.5)
+			var cam_tw = create_tween()
+			cam_tw.tween_property(camera_rig, "global_position", cam_target, 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			await cam_tw.finished
+			camera_rig.look_at(mid_point + Vector3(0.0, 1.1, 0.0), Vector3.UP)
+
 		if StoryManager and StoryManager.has_method("start_dialogue"):
-			var next_lines: Array[String] = [
-				"Rion: \"Tuas Ona Program sudah aktif... tapi kenapa lampu di lorong sana berkedip-kedip?\"",
-				"Ona: \"Energi cadangan mulai terkuras! Kita harus segera ke Ruang Energy Core dan menyalakan terminalnya sebelum seluruh bengkel mati!\"",
-				"Rion: \"Ayo, cepat!\""
-			]
-			StoryManager.start_dialogue(next_lines, "Rion")
+			StoryManager.start_dialogue([
+				"Ona: \"*Bip... bip... ding!* Sistem daya mendeteksi aliran energi utama telah pulih sepenuhnya...\"",
+				"Rion: \"Ona! Kamu sudah bangun! Lihat, ruanganmu sudah terang benderang!\"",
+				"Ona: \"Rion! Tuan Rallux! Terima kasih banyak sudah menyalakan tuas lampu dan membetulkan kabel terminal. Bateraiku sekarang sudah pulih seratus persen!\"",
+				"Rallux: \"Hahaha! Syukurlah! Kerja sama kalian berdua benar-benar luar biasa. Saling membantu dan peduli saat sahabat membutuhkan dukungan.\"",
+				"Rion: \"Semua berkat kerja sama tim kita, Tuan Rallux! Bersama Ona, petualangan jadi seru banget!\"",
+				"Ona: \"Terima kasih sudah menjadi sahabat terbaikku, Rion. Sekarang bengkel sudah aman, dan kita siap untuk petualangan berikutnya!\"",
+				"Rallux: \"Tepat sekali, anak-anak hebat. Beristirahatlah sejenak, karena perjalanan bintang kalian yang sesungguhnya baru saja dimulai...\""
+			], "Ona")
 			await StoryManager.dialogue_finished
+
+		if not GameManager.collected_fragments.get(frag_key, false):
+			await FragmentBox.show_fragment(frag_key)
+
+		# Tampilkan layar To Be Continued...
+		var tbc_script = load("res://scenes/ui/ToBeContinueOverlay.gd")
+		if tbc_script:
+			var tbc_overlay = tbc_script.new()
+			get_tree().root.add_child(tbc_overlay)
+			tbc_overlay.play()

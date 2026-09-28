@@ -28,7 +28,7 @@ var drag_line: Line2D
 var electric_shader: Shader = preload("res://scenes/Terminal/electric_wire.gdshader")
 
 var panel_rect: Rect2
-var close_button_rect: Rect2
+var refresh_button_rect: Rect2
 signal puzzle_completed(is_correct: bool)
 
 func _ready() -> void:
@@ -88,7 +88,7 @@ func setup() -> void:
 	var panel_y = (screen_size.y - panel_height) / 2.0
 	
 	panel_rect = Rect2(panel_x, panel_y, panel_width, panel_height)
-	close_button_rect = Rect2(panel_rect.position.x + panel_rect.size.x - 52, panel_rect.position.y + 6, 44, 44)
+	refresh_button_rect = Rect2(panel_rect.position.x + panel_rect.size.x - 52, panel_rect.position.y + 6, 44, 44)
 	
 	var wire_spacing = (panel_height - 60.0) / float(WIRE_COUNT + 1)
 	var left_offset = panel_x + 65.0
@@ -227,12 +227,15 @@ func _draw() -> void:
 		
 		_draw_socket(right_points[i], final_socket_col, displayed_symbol, is_active, false)
 	
-	# Tombol Tutup (X)
-	draw_rect(close_button_rect, Color(0.7, 0.15, 0.15), true)
-	draw_rect(close_button_rect, Color.WHITE, false, 1.5)
-	var pad := 12.0
-	draw_line(close_button_rect.position + Vector2(pad, pad), close_button_rect.end - Vector2(pad, pad), Color.WHITE, 2.5)
-	draw_line(Vector2(close_button_rect.end.x - pad, close_button_rect.position.y + pad), Vector2(close_button_rect.position.x + pad, close_button_rect.end.y - pad), Color.WHITE, 2.5)
+	# Tombol Refresh (↻)
+	draw_rect(refresh_button_rect, Color(0.15, 0.58, 0.88), true)
+	draw_rect(refresh_button_rect, Color.WHITE, false, 2.0)
+	var rf_font = ThemeDB.fallback_font
+	var rf_text = "↻"
+	var rf_size = 28
+	var rf_str_size = rf_font.get_string_size(rf_text, HORIZONTAL_ALIGNMENT_CENTER, -1, rf_size)
+	var rf_pos = refresh_button_rect.position + Vector2((refresh_button_rect.size.x - rf_str_size.x) * 0.5, refresh_button_rect.size.y * 0.72)
+	draw_string(rf_font, rf_pos, rf_text, HORIZONTAL_ALIGNMENT_LEFT, -1, rf_size, Color.WHITE)
 	
 func _gui_input(event: InputEvent) -> void:
 	var event_pos := Vector2.ZERO
@@ -260,9 +263,9 @@ func _gui_input(event: InputEvent) -> void:
 		is_drag = true
 
 	if is_press:
-		if close_button_rect.grow(10.0).has_point(event_pos):
+		if refresh_button_rect.grow(10.0).has_point(event_pos):
 			accept_event()
-			_on_close_pressed()
+			_on_refresh_pressed()
 			return
 
 	if is_complete or is_preview_phase:
@@ -339,7 +342,7 @@ func _check_complete() -> void:
 	await get_tree().create_timer(0.8).timeout
 	if all_correct:
 		StoryManager.dialogue_box.set_avatar_by_emotion("kagum")
-		StoryManager.start_dialogue(["Daya terminal berhasil dipulihkan! Ingatanmu tajam sekali!"], "Rion")
+		StoryManager.start_dialogue(["Rion: \"Daya terminal berhasil dipulihkan! Ingatanmu tajam sekali!\""], "Rion")
 		get_parent().hide()
 		await StoryManager.dialogue_finished
 		if not GameManager.collected_fragments.get("terminal", false):
@@ -347,11 +350,11 @@ func _check_complete() -> void:
 		puzzle_completed.emit(true)
 	else:
 		puzzle_completed.emit(false)
-		StoryManager.dialogue_box.set_avatar_by_emotion("happy")
-		StoryManager.start_dialogue(["Ada kabel yang korslet! Coba ingat-ingat lagi polanya ya!"], "Rion")
-		get_parent().hide()
+		StoryManager.dialogue_box.set_avatar_by_emotion("sedih")
+		StoryManager.start_dialogue(["Rion: \"Wah, kabelnya ada yang korslet dan belum pas! Tekan tombol Refresh (↻) di kanan atas untuk mengulang dan menghafal lagi ya!\""], "Rion")
+		is_complete = false
 
-func _on_close_pressed() -> void:
+func _on_refresh_pressed() -> void:
 	if AudioManager:
 		AudioManager.play_ui_click()
-	get_parent().hide()
+	setup()

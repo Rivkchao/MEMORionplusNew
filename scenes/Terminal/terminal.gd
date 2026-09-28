@@ -39,18 +39,13 @@ func _levers_done() -> bool:
 func _update_power_lights() -> void:
 	if _puzzle_solved:
 		return
-	# Selama tuas Ona Program belum 100%, lampu merah terminal dimatikan
-	var on := _ona_lever_done()
 	if omni_light_1:
-		omni_light_1.visible = on
+		omni_light_1.visible = true
 	if omni_light_2:
-		omni_light_2.visible = on
+		omni_light_2.visible = true
 
 func _process(delta: float) -> void:
 	if _puzzle_solved:
-		return
-	if not _ona_lever_done():
-		_update_power_lights()
 		return
 	if omni_light_1 and not omni_light_1.visible:
 		omni_light_1.visible = true
@@ -65,12 +60,11 @@ func _process(delta: float) -> void:
 func interact() -> void:
 	if _puzzle_solved:
 		return
-	if not _levers_done():
+	if not GameManager.unpacking_completed:
 		if StoryManager and StoryManager.has_method("start_dialogue"):
 			StoryManager.start_dialogue([
-				"Rion: \"Terminalnya masih gelap total... sepertinya sumber dayanya belum tersambung.\"",
-				"Ona: \"Kita harus menyalakan tuas di Ruang Crusher dan Ona Program dulu sebelum terminal ini bisa hidup.\""
-			], "Rion")
+				"Rallux: \"Rion, bereskan dulu barang-barang bengkel sebelum menyalakan terminal ya!\""
+			], "Rallux")
 		return
 	_play_terminal_emergency()
 
@@ -84,17 +78,18 @@ func _play_terminal_emergency() -> void:
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(rect)
 	add_child(layer)
-	var flash := create_tween().set_loops(5)
-	flash.tween_property(rect, "color:a", 0.16, 0.25)
+	var flash := create_tween().set_loops(4)
+	flash.tween_property(rect, "color:a", 0.14, 0.25)
 	flash.tween_property(rect, "color:a", 0.0, 0.25)
 
 	var emergency: Array[String] = [
-		"Ona: \"Rion, awas! Sensor mendeteksi lonjakan tegangan di ruang energi!\"",
-		"Rion: \"Lonjakan tegangan?! Sumber listriknya kenapa, Ona?!\"",
-		"Ona: \"Kabel penghubung inti terlepas. Kalau tidak segera dibenerin, seluruh bengkel bisa mati total!\"",
-		"Rion: \"Tenang, aku akan sambungkan kembali kabelnya. Bantu aku mengarahkan, Ona!\""
+		"Rallux: \"Nah, ini dia Terminal Daya Utama kita, Rion.\"",
+		"Rallux: \"Sebab kapsulmu jatuh kemarin, getarannya membuat kabel terminal berantakan sehingga beberapa ruangan mati lampu.\"",
+		"Rallux: \"Jadi benerin dulu kabelnya ya! Sambungkan warna kabel kiri ke soket kanan yang pas agar sistem listrik stabil kembali.\"",
+		"Rion: \"Wah, ternyata getaran kapsulku ya... Tenang, Tuan Rallux! Aku akan benerin kabelnya sampai rapi dan menyala lagi!\"",
+		"Rallux: \"Pintar! Ingat-ingat warnanya saat menyala ya, kamu pasti bisa!\""
 	]
-	StoryManager.start_dialogue(emergency, "Ona")
+	StoryManager.start_dialogue(emergency, "Rallux")
 	await StoryManager.dialogue_finished
 
 	if flash:
@@ -112,19 +107,21 @@ func _on_wire_puzzle_completed(is_correct: bool) -> void:
 		omni_light_2.light_energy = solved_energy
 		interact_label = ""
 
-		# Dramatisasi dialog setelah terminal berhasil dinyalakan (kembali tenang)
+		# Dialog apresiasi Rallux setelah kabel terminal berhasil dibetulkan
 		if StoryManager and StoryManager.has_method("start_dialogue"):
 			var lines: Array[String] = [
-				"Rion: \"Layar terminalnya menyala! Sistem ruang energi mulai membaca ulang data.\"",
-				"Ona: \"Sambungan kabelnya sudah tepat. Tegangan stabil kembali, Rion.\"",
-				"Ona: \"Lihat... lampu-lampunya tenang lagi. Semua baik-baik saja sekarang. Terima kasih sudah sigap.\""
+				"Rallux: \"Wah, hebat sekali, Rion! Sambungan kabelnya sudah rapi dan pas! Lampu terminal menyala hijau stabil kembali!\"",
+				"Rion: \"Horeee! Kabel terminalnya sudah beres dan listrik utama menyala lagi!\"",
+				"Rallux: \"Luar biasa! Sekarang ayo kita ke Ruang Crusher untuk menyalakan tuas lampu di sana!\""
 			]
-			StoryManager.start_dialogue(lines, "Rion")
+			StoryManager.start_dialogue(lines, "Rallux")
 			await StoryManager.dialogue_finished
-		# Lanjutkan cutscene & dialog bersama Tuan Rallux di depan Battery-EC
-		var main_scene = get_tree().current_scene
-		if main_scene and main_scene.has_method("play_battery_ec_cutscene"):
-			await main_scene.play_battery_ec_cutscene()
 
-		# Setelah dialog tenang dan cutscene baterai selesai, baru buka Rak 2
 		GameManager.terminal_puzzle_done = true
+
+		# Transisi fade in tepat di depan tuas lampu Ruang Crusher
+		var main_scene = get_tree().current_scene
+		if main_scene and main_scene.has_method("transition_to_crusher_lever"):
+			await main_scene.transition_to_crusher_lever()
+		else:
+			GameManager.set_objective("Nyalakan tuas lampu di Ruang Crusher", 0, "")

@@ -1,9 +1,8 @@
 extends Area3D
-class_name DoorExit
 
 @export_file("*.tscn") var target_scene: String = "res://LEV1.tscn"
 @export var interact_distance: float = 6.0
-@export var door_label: String = "Press E to Exit"
+@export var door_label: String = "Klik E / Aksi untuk Keluar"
 
 var player: Node3D = null
 var _player_near: bool = false

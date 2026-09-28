@@ -98,7 +98,7 @@ func interact() -> void:
 		return
 
 	# Cek apakah pintu bengkel sedang terkunci dari cerita (Scene 5)
-	if target_scene.contains("R1") and GameManager.workshop_door_locked:
+	if (target_scene.contains("R1") or target_scene.contains("LEV2")) and GameManager.workshop_door_locked:
 		var ona_node = get_tree().get_first_node_in_group("ona")
 		if ona_node == null:
 			ona_node = get_parent().find_child("Ona", true, false)

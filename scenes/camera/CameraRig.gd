@@ -13,14 +13,14 @@ extends Node3D
 
 # Zoom
 @export var zoom_speed: float = 0.5
-@export var min_zoom: float = 2.0
-@export var max_zoom: float = 7.0
+@export var min_zoom: float = 1.5
+@export var max_zoom: float = 12.0
 
 @onready var camera: Camera3D = $Camera3D
 
 var yaw: float = 0.0
 var pitch: float = 20.0
-var zoom_distance: float = 4.0
+var zoom_distance: float = 6.8
 var is_orbiting: bool = false
 var orbit_cooldown: float = 0.0
 
@@ -57,20 +57,24 @@ func _apply_scene_camera_settings() -> void:
 	if current_scene != null and not current_scene.scene_file_path.is_empty():
 		file_path = current_scene.scene_file_path.get_file().get_basename()
 
-	# Cek apakah masuk ke BengkelRallux / R1 (Interior) atau LEV1 (Outdoor)
-	if scene_name in ["BengkelRallux", "R1"] or file_path in ["BengkelRallux", "R1"]:
+	# Cek apakah masuk ke BengkelRallux / R1 / LEV2 (Interior) atau LEV1 (Outdoor)
+	if scene_name in ["BengkelRallux", "R1", "LEV2"] or file_path in ["BengkelRallux", "R1", "LEV2"]:
 		camera.near = 0.05
 		camera.far = 1000.0       # Jarak render jauh tanpa batas kabut/clipping di interior
-		zoom_distance = 9.5       # Lebih jauh supaya misi di bengkel terlihat luas
-		max_zoom = 13.0
+		zoom_distance = 6.8       # Jarak kamera interior yang lebih lega & tidak terlalu dekat
+		min_zoom = 2.5
+		max_zoom = 12.0
 	elif scene_name == "LEV1" or file_path == "LEV1":
 		camera.near = 0.05
 		camera.far = 160.0        # Optimal untuk outdoor / terrain (cull distant scatter)
-		zoom_distance = 4.0
+		zoom_distance = 6.5
+		min_zoom = 1.5
+		max_zoom = 12.0
 	else:
 		# Fallback default untuk scene lain
 		camera.near = 0.05
 		camera.far = 500.0
+		zoom_distance = 6.5
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -217,4 +221,20 @@ func rotate_camera(relative_delta: Vector2) -> void:
 
 func zoom_camera(delta_zoom: float) -> void:
 	zoom_distance = clamp(zoom_distance + delta_zoom, min_zoom, max_zoom)
+
+## Helper untuk mengatur posisi dan arah kamera cutscene sekaligus menyinkronkan yaw & pitch
+func set_camera_view(pos: Vector3, look_at_pos: Vector3, new_yaw: float = NAN, new_pitch: float = 20.0, new_zoom: float = 4.8) -> void:
+	global_position = pos
+	look_at(look_at_pos, Vector3.UP)
+	if not is_nan(new_yaw):
+		yaw = new_yaw
+	else:
+		var dir := look_at_pos - pos
+		yaw = atan2(-dir.x, -dir.z)
+	pitch = new_pitch
+	zoom_distance = new_zoom
+	orbit_cooldown = 0.0
+	if target:
+		_last_target_pos = target.global_position
+
 

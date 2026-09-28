@@ -80,13 +80,48 @@ func teleport_player() -> void:
 	# Tentukan apakah player masuk ke dalam atau keluar
 	var is_entering_inside: bool = dist_to_outside < dist_to_inside
 	var target_marker = marker_inside if is_entering_inside else marker_outside
+	var entering_room: bool = (target_marker == _inside_marker())
+
+	# Blokir Rion keluar dari dalam ruangan jika puzzle ruangan belum selesai
+	if not entering_room:
+		var room_k := _room_key()
+		if room_k.contains("glass") and not GameManager.terminal_puzzle_done:
+			if StoryManager and StoryManager.has_method("start_dialogue"):
+				StoryManager.start_dialogue([
+					"Rallux: \"Eits, Rion! Jangan keluar dulu ya. Kabel terminalnya harus kita betulkan dulu supaya aliran listrik kembali aktif!\"",
+					"Rion: \"Oh iya, Tuan Rallux! Aku betulkan kabel terminalnya sekarang!\""
+				], "Rallux")
+			return
+		elif room_k.contains("crusher") and not GameManager.solved_levers.get("CrusherRoom_Lever", false):
+			if StoryManager and StoryManager.has_method("start_dialogue"):
+				StoryManager.start_dialogue([
+					"Rallux: \"Tunggu dulu, Rion! Jangan keluar dulu, kita harus tarik tuas lampu di ruangan ini sampai seratus persen dulu supaya mesin daur ulang aktif!\"",
+					"Rion: \"Siap, Tuan Rallux! Aku tarik tuas lampunya dulu sampai seratus persen!\""
+				], "Rallux")
+			return
+		elif room_k.contains("onaprogram") and not GameManager.solved_levers.get("OnaProgramRoom_Lever", false):
+			if StoryManager and StoryManager.has_method("start_dialogue"):
+				StoryManager.start_dialogue([
+					"Rallux: \"Eits, Rion! Ona masih belum selesai mengisi daya dan tuas lampunya belum dinyalakan. Ayo kita nyalakan tuasnya dulu sampai seratus persen!\"",
+					"Rion: \"Baik, Tuan Rallux! Aku nyalakan tuas lampu untuk Ona dulu!\""
+				], "Rallux")
+			return
 
 	current_player.global_position = target_marker.global_position
 	current_player.global_rotation.y = target_marker.global_rotation.y
 
-	# Bawa Ona ikut berpindah ruangan (kalau ada di scene R1)
 	var scene := get_tree().current_scene
-	if scene:
+
+	# Snap kamera seketika ke belakang pemain di ruangan baru agar tidak tersangkut / menabrak dinding antar ruangan
+	var cam_rig: Node3D = scene.find_child("CameraRig", true, false) as Node3D if scene else null
+	if cam_rig == null:
+		cam_rig = get_tree().get_first_node_in_group("camera_rig") as Node3D
+	if cam_rig and cam_rig.has_method("snap_to_target"):
+		cam_rig.zoom_distance = 6.8
+		cam_rig.snap_to_target()
+
+	# Bawa Ona ikut berpindah ruangan HANYA jika Ona tidak sedang istirahat baterai
+	if scene and not GameManager.ona_hold_position:
 		var ona := scene.find_child("Ona", true, false) as Node3D
 		if ona and ona != current_player:
 			ona.global_position = target_marker.global_position + Vector3(1.6, 0.0, 0.8)
@@ -94,9 +129,9 @@ func teleport_player() -> void:
 
 	_apply_room_lighting(is_entering_inside)
 
-	# Ona ditahan diam di depan pintu selama berada di dalam ruangan misi
-	var entering_room: bool = (target_marker == _inside_marker())
-	GameManager.ona_hold_position = entering_room
+	# Jika Ona tidak sedang istirahat di dok, posisikan Ona di depan pintu ruangan
+	if not GameManager.ona_hold_position:
+		GameManager.ona_hold_position = entering_room
 	_play_room_intro(target_marker, entering_room)
 
 func _inside_marker() -> Node3D:
@@ -112,29 +147,34 @@ func _play_room_intro(marker: Node3D, entering_room: bool) -> void:
 	var already: bool = GameManager.room_intro_seen.get(room, false)
 	GameManager.room_intro_seen[room] = true
 
-	# Ona selalu diposisikan diam di depan pintu (dan tidak melayang)
-	_position_ona_at_door(marker)
+	# Ona selalu diposisikan diam di depan pintu jika sedang mengikuti Rion
+	if not GameManager.ona_hold_position:
+		_position_ona_at_door(marker)
 
 	if already:
 		return
 	if room.contains("crusher"):
 		StoryManager.start_dialogue([
-			"Rion: \"Ruangan ini... kok dipenuhi mesin penghancur raksasa?\"",
-			"Ona: \"Betul, Rion. Ini Ruang Crusher — tempat kami menghancurkan barang yang sudah tidak terpakai atau rusak, lalu materialnya didaur ulang.\"",
-			"Rion: \"Jadi ini tempat pembuangan sekaligus daur ulang... Serem tapi keren juga. Ayo nyalakan tuasnya!\""
-		], "Rion")
+			"Rallux: \"Nah, ini dia Ruang Crusher kita, Rion. Di ruangan inilah semua bongkahan logam rongsokan, serpihan mesin tua, dan sisa perkakas bengkel dihancurkan untuk didaur ulang menjadi suku cadang baru yang bersih dan bermanfaat.\"",
+			"Rion: \"Wah, keren banget! Jadi barang-barang yang kelihatan rusak dan berantakan bisa diolah lagi jadi berguna di sini ya, Tuan Rallux!\"",
+			"Rallux: \"Tepat sekali! Tapi karena sistem dayanya terputus akibat getaran kemarin, lampu dan mesin daur ulang di sini ikut padam. Ruangannya jadi gelap gulita.\"",
+			"Rion: \"Tenang saja, Tuan Rallux! Aku akan tarik tuas lampu di depan sana sampai seratus persen supaya mesinnya menyala dan ruangannya kembali terang benderang!\"",
+			"Rallux: \"Bagus sekali semangatmu, Kapten! Tarik tuasnya sampai seratus persen ya!\""
+		], "Rallux")
 	elif room.contains("onaprogram"):
 		StoryManager.start_dialogue([
-			"Rion: \"Ona... ruangan ini diberi nama Ona Program Room. Khusus untukmu ya?\"",
-			"Ona: \"Iya, Rion. Di sinilah Tuan Rallux membuat dan memprogram diriku. Setiap log dan memori awalku lahir dari ruangan ini.\"",
-			"Rion: \"Jadi ini rumah pertamamu... Terima kasih sudah menemaniku, Ona. Ayo kita hidupkan tuasnya.\""
-		], "Rion")
+			"Rallux: \"Selamat datang di Ruang Perakitan & Pemrograman Ona, Rion. Ruangan ini adalah laboratorium khusus tempat bodi robot Ona dirakit, sirkuit memorinya dipelihara, dan dok pengisian baterai utamanya berada.\"",
+			"Rion: \"Ooh, jadi ini tempat kelahiran Ona sekaligus ruang servis dan istirahatnya ya, Tuan Rallux!\"",
+			"Rallux: \"Betul sekali. Di sinilah prosesor Ona didinginkan dan memorinya ditata ulang setelah lelah beraktivitas. Lihat, Ona sedang beristirahat di dok pengisian daya di samping panel kontrol itu.\"",
+			"Rion: \"Ona kelihatan pulas banget... Ayo kita nyalakan tuas lampu di ruangan ini supaya daya dok pengisian baterainya pulih penuh dan Ona bisa segera bangun!\"",
+			"Rallux: \"Pintar sekali, Rion! Ayo kita hidupkan tuas lampunya sampai seratus persen!\""
+		], "Rallux")
 	elif room.contains("glass"):
 		StoryManager.start_dialogue([
-			"Rion: \"Ruangan ini... banyak sekali kabel dan panel energinya.\"",
-			"Ona: \"Ini Ruang Energy Core, sumber daya utama bengkel. Berhati-hatilah, Rion.\"",
-			"Rion: \"Baik. Akan kuperiksa terminalnya.\""
-		], "Rion")
+			"Rallux: \"Nah, kita sudah sampai di Ruang Kontrol Daya. Banyak kabel dan panel energi di sini.\"",
+			"Rallux: \"Ayo ke depan terminal daya di sana, Rion. Kita periksa sambungan kabelnya bersama!\"",
+			"Rion: \"Siap, Tuan Rallux! Aku segera ke terminal daya!\""
+		], "Rallux")
 
 func _position_ona_at_door(marker: Node3D) -> void:
 	# Arah masuk ruangan = dari sisi luar ke sisi dalam pintu
@@ -192,17 +232,15 @@ func _room_key() -> String:
 
 func _door_gate_ok() -> bool:
 	var room := _room_key()
-	if room.contains("crusher"):
-		# Ruang Crusher: boleh masuk setelah Rak 1 selesai
-		return GameManager.unpacking_rak1_done
-	if room.contains("onaprogram"):
-		# Ruang Ona Program: setelah Tuas Crusher selesai
-		return GameManager.solved_levers.get("CrusherRoom_Lever", false)
 	if room.contains("glass"):
-		# Ruang Energy Core / Terminal: setelah Rak 1 + kedua tuas selesai
-		return GameManager.unpacking_rak1_done \
-			and GameManager.solved_levers.get("CrusherRoom_Lever", false) \
-			and GameManager.solved_levers.get("OnaProgramRoom_Lever", false)
+		# Ruang Kontrol Daya (Glass Room): dibuka setelah bengkel selesai dirapikan (Unpacking)
+		return GameManager.unpacking_completed
+	if room.contains("crusher"):
+		# Ruang Crusher: dibuka setelah kabel terminal di Glass Room selesai dibetulkan
+		return GameManager.terminal_puzzle_done
+	if room.contains("onaprogram"):
+		# Ruang Ona Program: dibuka setelah Tuas Crusher Room ditarik
+		return GameManager.solved_levers.get("CrusherRoom_Lever", false)
 	return true
 
 func _show_locked_notice() -> void:
@@ -213,34 +251,44 @@ func _show_locked_notice() -> void:
 		return
 	var room := _room_key()
 	var lines: Array[String]
-	if room.contains("crusher"):
+	if room.contains("glass"):
 		lines = [
-			"Rion: \"Pintu Ruang Crusher masih terkunci. Sepertinya aku harus beresin Rak 1 dulu.\"",
-			"Ona: \"Betul. Selesaikan dulu barang-barang yang berserakan sebelum masuk ke sini.\""
+			"Rallux: \"Rion, kita selesaikan merapikan barang-barang bengkel dulu ya sebelum masuk ke Ruang Kontrol Daya!\"",
+			"Rion: \"Siap, Tuan Rallux! Aku bereskan rak bengkel dulu!\""
+		]
+	elif room.contains("crusher"):
+		lines = [
+			"Rallux: \"Pintu Ruang Crusher masih terkunci. Kita harus membetulkan kabel terminal di Ruang Kontrol Daya dulu ya, Rion!\"",
+			"Rion: \"Baik, Tuan Rallux! Ayo kita ke Ruang Kontrol Daya dulu!\""
 		]
 	elif room.contains("onaprogram"):
 		lines = [
-			"Rion: \"Pintu Ona Program Room terkunci. Aku harus menyalakan Tuas di Ruang Crusher dulu ya?\"",
-			"Ona: \"Iya, urutannya begitu. Daya ruanganku baru terbuka setelah Crusher menyala.\""
-		]
-	elif room.contains("glass"):
-		lines = [
-			"Rion: \"Pintu menuju Energy Core masih terkunci. Aku harus menyalakan tuas di Ruang Crusher dan Ona Program dulu.\"",
-			"Ona: \"Betul. Ruang Energy Core baru bisa dibuka setelah sistem tuasnya aktif.\""
+			"Rallux: \"Pintu Ruang Perakitan Ona masih terkunci. Kita nyalakan dulu tuas lampu di Ruang Crusher ya!\"",
+			"Rion: \"Siap! Aku nyalakan tuas Ruang Crusher dulu supaya dayanya tersambung ke Ruang Perakitan Ona!\""
 		]
 	else:
 		lines = ["Rion: \"Pintu ini masih terkunci.\""]
-	StoryManager.start_dialogue(lines, "Rion")
+	StoryManager.start_dialogue(lines, "Rallux")
 
 
 func _apply_room_lighting(is_inside: bool) -> void:
 	if not world_environment or not world_environment.environment:
 		return
 
-	# Jika ruangan sudah dibuka via tuas, saat masuk jangan digelapkan
-	if is_inside and is_room_unlocked:
-		return
+	var room := _room_key()
+	var target_energy: float = outside_ambient_energy
 
-	var target_energy = inside_ambient_energy if is_inside else outside_ambient_energy
+	if is_inside:
+		if room.contains("crusher"):
+			var crusher_solved: bool = GameManager.solved_levers.get("CrusherRoom_Lever", false)
+			target_energy = 0.7 if (is_room_unlocked or crusher_solved) else inside_ambient_energy
+		elif room.contains("onaprogram"):
+			var ona_solved: bool = GameManager.solved_levers.get("OnaProgramRoom_Lever", false)
+			target_energy = 0.7 if (is_room_unlocked or ona_solved) else inside_ambient_energy
+		else:
+			target_energy = outside_ambient_energy
+	else:
+		target_energy = outside_ambient_energy
+
 	var tween = create_tween()
 	tween.tween_property(world_environment.environment, "ambient_light_energy", target_energy, 0.4)

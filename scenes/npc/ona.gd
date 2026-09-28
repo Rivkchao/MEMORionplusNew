@@ -1287,9 +1287,9 @@ func _run_sleep_transition(player: Node3D) -> void:
 	GameManager.sleep_transition_done = true
 	print("[Ona] Transisi tidur Scene 5 & Kilas Balik selesai.")
 
-	# Pagi berikutnya: pindah ke bengkel R1 untuk adegan masa kini & misi beres-beres.
-	GameManager.set_spawn_override(Vector3(-68.10683, 0.114290714, -43.697), "R1")
+	# Pagi berikutnya: pindah ke bengkel LEV2 untuk adegan masa kini & misi beres-beres.
+	GameManager.set_spawn_override(Vector3(-68.10683, 0.114290714, -43.697), "LEV2")
 	if has_node("/root/LoadingScreen"):
-		LoadingScreen.load_scene("res://R1.tscn", 0.0, false)
+		LoadingScreen.load_scene("res://LEV2.tscn", 0.0, false)
 	else:
-		get_tree().change_scene_to_file("res://R1.tscn")
+		get_tree().change_scene_to_file("res://LEV2.tscn")

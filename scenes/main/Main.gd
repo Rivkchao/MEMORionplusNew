@@ -115,18 +115,19 @@ func _setup_gameplay_state() -> void:
 		if r1_capsule:
 			r1_capsule.visible = true
 
-	# Hari berikutnya di bengkel (R1): objective per game (tidak digabung)
-	if has_node("StoryPointing2") and has_node("Rallux") and not GameManager.unpacking_completed:
+	# Hari berikutnya di bengkel (R1): objective per alur cerita
+	if has_node("StoryPointing2") and has_node("Rallux"):
 		if not GameManager.unpacking_rak1_done:
 			GameManager.set_objective("Kumpulkan perkakas berserakan dan rapikan Rak 1", 0, "")
+		elif not GameManager.unpacking_completed:
+			GameManager.set_objective("Rapikan Rak 2 bersama Ona", 0, "")
+		elif not GameManager.terminal_puzzle_done:
+			GameManager.set_objective("Perbaiki kabel terminal di Ruang Kontrol Daya", 0, "")
+
 		elif not GameManager.solved_levers.get("CrusherRoom_Lever", false):
 			GameManager.set_objective("Nyalakan tuas lampu di Ruang Crusher", 0, "")
 		elif not GameManager.solved_levers.get("OnaProgramRoom_Lever", false):
-			GameManager.set_objective("Tarik Tuas di Ona Program Room", 0, "")
-		elif not GameManager.terminal_puzzle_done:
-			GameManager.set_objective("Nyalakan Terminal di Ruang Energy Core", 0, "")
-		else:
-			GameManager.set_objective("Rapikan Rak 2 (angkut semua barang ke slot yang benar)", 0, "")
+			GameManager.set_objective("Pergi ke Ruang Perakitan Ona, nyalakan tuas lampu dan jenguk Ona", 0, "")
 
 func _workshop_tasks_done() -> bool:
 	return GameManager.terminal_puzzle_done \
@@ -249,6 +250,341 @@ func _fade_walk_transition(fade_out_time: float = 0.45, fade_in_time: float = 0.
 	if hold > 0.0:
 		tween.tween_interval(hold)
 	tween.tween_property(rect, "modulate:a", 0.0, fade_in_time).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+func _snap_to_ground(node: Node3D) -> void:
+	if not is_instance_valid(node):
+		return
+	var space := get_world_3d().direct_space_state
+	if space == null:
+		return
+	var from_pos: Vector3 = node.global_position + Vector3(0.0, 4.0, 0.0)
+	var to_pos: Vector3 = node.global_position - Vector3(0.0, 8.0, 0.0)
+	var query := PhysicsRayQueryParameters3D.create(from_pos, to_pos)
+	query.collision_mask = 1
+	query.collide_with_areas = false
+	var result: Dictionary = space.intersect_ray(query)
+	if not result.is_empty():
+		var p: Vector3 = node.global_position
+		p.y = result["position"].y
+		node.global_position = p
+
+## Transisi fade in ke depan Terminal Daya di Ruang Kontrol Daya
+func transition_to_terminal() -> void:
+	var player = find_child("Player", true, false) as CharacterBody3D
+	var camera_rig = find_child("CameraRig", true, false)
+	var rallux = find_child("Rallux", true, false) as Node3D
+	var terminal = find_child("Terminal", true, false) as Node3D
+	var hud = find_child("HUD", true, false)
+
+	# 1. Nonaktifkan kontrol & fade out ke hitam
+	if player:
+		player.set_physics_process(false)
+		player.set_process_unhandled_input(false)
+		player.velocity = Vector3.ZERO
+	if camera_rig:
+		camera_rig.set_physics_process(false)
+		camera_rig.set_process(false)
+		camera_rig.set_process_unhandled_input(false)
+	await _fade_screen_out(0.5)
+
+	# 2. Posisikan Player & Rallux di depan Terminal Daya (x=49.89, y=5.885, z=-32.852)
+	var term_pos: Vector3 = Vector3(49.89, 5.885, -32.852)
+	if terminal:
+		terminal.global_position = term_pos
+
+	var target_player_pos: Vector3 = Vector3(48.2, 5.885, -32.2)
+	var target_rallux_pos: Vector3 = Vector3(47.6, 5.885, -33.6)
+
+	if player:
+		player.global_position = target_player_pos
+		player.velocity = Vector3.ZERO
+		player.rotation = Vector3.ZERO
+		var dir_p: Vector3 = term_pos - player.global_position
+		dir_p.y = 0.0
+		var rion_mesh = player.get_node_or_null("RionMesh")
+		if rion_mesh and dir_p.length_squared() > 0.01:
+			rion_mesh.rotation.y = atan2(dir_p.x, dir_p.z)
+		_snap_to_ground(player)
+
+	if rallux:
+		rallux.visible = true
+		rallux.global_position = target_rallux_pos
+		var dir_r: Vector3 = term_pos - rallux.global_position
+		dir_r.y = 0.0
+		if dir_r.length_squared() > 0.01:
+			rallux.rotation.y = atan2(dir_r.x, dir_r.z)
+		_snap_to_ground(rallux)
+		_play_rallux_anim(rallux, "idle")
+
+	if camera_rig:
+		camera_rig.global_position = Vector3(40.5, 8.2, -29.8)
+		camera_rig.look_at(term_pos + Vector3(0.0, 1.2, 0.0), Vector3.UP)
+		camera_rig.yaw = 0.0
+		camera_rig.pitch = 18.0
+		camera_rig.zoom_distance = 6.8
+		if camera_rig.has_method("snap_to_target"):
+			camera_rig.snap_to_target()
+
+	# Update objective misi ke terminal
+	GameManager.set_objective("Perbaiki kabel terminal di Ruang Kontrol Daya", 0, "")
+
+
+	# 3. Fade in dari hitam
+	await _fade_screen_in(0.5)
+
+	# 4. Aktifkan kembali kontrol gameplay
+	if player:
+		player.set_physics_process(true)
+		player.set_process_unhandled_input(true)
+	if camera_rig:
+		camera_rig.set_physics_process(true)
+		camera_rig.set_process(true)
+		camera_rig.set_process_unhandled_input(true)
+	if hud:
+		if hud.has_method("set_gameplay_ui_visible"):
+			hud.set_gameplay_ui_visible(true)
+		else:
+			hud.visible = true
+
+	# 5. Dialog Tuan Rallux di depan terminal daya
+	if terminal and terminal.has_method("interact"):
+		terminal.interact()
+
+## Transisi fade in ke depan Tuas Lampu di Ruang Crusher
+func transition_to_crusher_lever() -> void:
+	var player = find_child("Player", true, false) as CharacterBody3D
+	var camera_rig = find_child("CameraRig", true, false)
+	var rallux = find_child("Rallux", true, false) as Node3D
+	var crusher_room = find_child("CrusherRoom", true, false)
+	var crusher_lever = crusher_room.find_child("Lever", true, false) as Node3D if crusher_room else null
+	var hud = find_child("HUD", true, false)
+
+	# 1. Nonaktifkan kontrol & fade out ke hitam
+	if player:
+		player.set_physics_process(false)
+		player.set_process_unhandled_input(false)
+		player.velocity = Vector3.ZERO
+	if camera_rig:
+		camera_rig.set_physics_process(false)
+		camera_rig.set_process(false)
+		camera_rig.set_process_unhandled_input(false)
+	await _fade_screen_out(0.5)
+
+	# 2. Posisi Player & Rallux sesuai permintaan user:
+	# rallux x= -19.479 z=-22.42, rion x=-17.457 z=-26.254
+	var target_player_pos := Vector3(-17.457, 1.16, -26.254)
+	var target_rallux_pos := Vector3(-19.479, 1.16, -22.42)
+
+	var lever_pos := Vector3(-15.324, 5.075, -24.292)
+	if crusher_lever:
+		if "lever_handle" in crusher_lever and crusher_lever.lever_handle:
+			lever_pos = crusher_lever.lever_handle.global_position
+		else:
+			lever_pos = crusher_lever.global_position
+
+	if player:
+		player.global_position = target_player_pos
+		player.velocity = Vector3.ZERO
+		player.rotation = Vector3.ZERO
+		var dir_p: Vector3 = lever_pos - target_player_pos
+		dir_p.y = 0.0
+		var rion_mesh = player.get_node_or_null("RionMesh")
+		if rion_mesh and dir_p.length_squared() > 0.01:
+			rion_mesh.rotation.y = atan2(dir_p.x, dir_p.z)
+		_snap_to_ground(player)
+
+	if rallux:
+		rallux.visible = true
+		rallux.scale = Vector3(8.0, 8.0, 8.0)
+		rallux.global_position = target_rallux_pos
+		var dir_r: Vector3 = lever_pos - target_rallux_pos
+		dir_r.y = 0.0
+		if dir_r.length_squared() > 0.01:
+			rallux.rotation.y = atan2(dir_r.x, dir_r.z)
+		_snap_to_ground(rallux)
+		_play_rallux_anim(rallux, "idle")
+
+	# Kamera sorot dari SM_Microwave ke arah lever
+	var microwave_pos := Vector3(-34.536, 4.0, -34.28)
+	if crusher_room:
+		var mw = crusher_room.find_child("SM_Microwave", true, false) as Node3D
+		if not mw:
+			mw = crusher_room.find_child("Crusher", true, false) as Node3D
+		if mw:
+			microwave_pos = mw.global_position + Vector3(4.5, 3.8, 3.2)
+
+	if camera_rig:
+		camera_rig.global_position = microwave_pos
+		camera_rig.look_at(lever_pos + Vector3(0.0, 1.0, 0.0), Vector3.UP)
+		camera_rig.yaw = 0.0
+		camera_rig.pitch = 14.0
+		camera_rig.zoom_distance = 4.5
+
+	# Kondisi ruangan crusher gelap dulu karena tuas masih 0%
+	var we = find_child("WorldEnvironment", true, false) as WorldEnvironment
+	if we and we.environment:
+		var is_solved: bool = GameManager.solved_levers.get("CrusherRoom_Lever", false)
+		we.environment.ambient_light_energy = 0.7 if is_solved else 0.05
+
+	# 3. Fade in dari hitam
+	await _fade_screen_in(0.5)
+
+	# 4. Aktifkan kembali kontrol gameplay (kamera tetap menatap dari arah SM_Microwave ke tuas)
+	if player:
+		player.set_physics_process(true)
+		player.set_process_unhandled_input(true)
+	if camera_rig:
+		camera_rig.set_physics_process(false)
+		camera_rig.set_process(false)
+		camera_rig.set_process_unhandled_input(false)
+	if hud:
+		if hud.has_method("set_gameplay_ui_visible"):
+			hud.set_gameplay_ui_visible(true)
+		else:
+			hud.visible = true
+
+	GameManager.set_objective("Nyalakan tuas lampu di Ruang Crusher", 0, "")
+
+	# Dialog penjelasan fungsi Ruang Crusher saat pertama kali masuk
+	if not GameManager.room_intro_seen.get("crusher", false):
+		GameManager.room_intro_seen["crusher"] = true
+		if StoryManager and StoryManager.has_method("start_dialogue"):
+			StoryManager.start_dialogue([
+				"Rallux: \"Nah, ini dia Ruang Crusher kita, Rion. Di ruangan inilah semua bongkahan logam rongsokan, serpihan mesin tua, dan sisa perkakas bengkel dihancurkan untuk didaur ulang menjadi suku cadang baru yang bersih dan bermanfaat.\"",
+				"Rion: \"Wah, keren banget! Jadi barang-barang yang kelihatan rusak dan berantakan bisa diolah lagi jadi berguna di sini ya, Tuan Rallux!\"",
+				"Rallux: \"Tepat sekali! Tapi karena sistem dayanya terputus akibat getaran kemarin, lampu dan mesin daur ulang di sini ikut padam. Ruangannya jadi gelap gulita.\"",
+				"Rion: \"Tenang saja, Tuan Rallux! Aku akan tarik tuas lampu di depan sana sampai seratus persen supaya mesinnya menyala dan ruangannya kembali terang benderang!\"",
+				"Rallux: \"Bagus sekali semangatmu, Kapten! Tarik tuasnya sampai seratus persen ya!\""
+			], "Rallux")
+			await StoryManager.dialogue_finished
+
+## Transisi fade in ke Ruang Perakitan & Pemrograman Ona
+func transition_to_onaprogram_lever() -> void:
+	var player = find_child("Player", true, false) as CharacterBody3D
+	var camera_rig = find_child("CameraRig", true, false)
+	var rallux = find_child("Rallux", true, false) as Node3D
+	var ona = find_child("Ona", true, false) as Node3D
+	var ona_room = find_child("OnaProgramRoom", true, false)
+	var hud = find_child("HUD", true, false)
+
+	# 1. Nonaktifkan kontrol & fade out ke hitam
+	if player:
+		player.set_physics_process(false)
+		player.set_process_unhandled_input(false)
+		player.velocity = Vector3.ZERO
+	if camera_rig:
+		camera_rig.set_physics_process(false)
+		camera_rig.set_process(false)
+		camera_rig.set_process_unhandled_input(false)
+	await _fade_screen_out(0.5)
+
+	# 2. Posisi Player, Rallux, dan Ona sesuai instruksi:
+	# rallux x=-19.644 z=36.039, ona x=-30.848 z=27.768, rion x=-17.85 z=29.908
+	var target_rallux_pos := Vector3(-19.644, 1.16, 36.039)
+	var target_ona_pos := Vector3(-30.848, 1.16, 27.768)
+	var target_player_pos := Vector3(-17.85, 1.16, 29.908)
+
+	var preview_pos := Vector3(-30.891, 0.0, 31.639)
+	if ona_room:
+		var pc = ona_room.find_child("PreviewControl", true, false) as Node3D
+		if pc:
+			preview_pos = pc.global_position
+
+	var lever_pos := Vector3(-15.312, 5.285, 32.141)
+	if ona_room:
+		var lev = ona_room.find_child("Lever", true, false) as Node3D
+		if lev:
+			if "lever_handle" in lev and lev.lever_handle:
+				lever_pos = lev.lever_handle.global_position
+			else:
+				lever_pos = lev.global_position
+
+	# Posisikan Ona menghadap PreviewControl
+	if ona:
+		ona.visible = true
+		ona.global_position = target_ona_pos
+		var dir_o := preview_pos - target_ona_pos
+		dir_o.y = 0.0
+		if dir_o.length_squared() > 0.01:
+			ona.rotation.y = atan2(-dir_o.x, -dir_o.z)
+		_snap_to_ground(ona)
+		if ona.has_method("play_animation"):
+			ona.play_animation("idle")
+
+	# Posisikan Rion menghadap Lever
+	if player:
+		player.global_position = target_player_pos
+		player.velocity = Vector3.ZERO
+		player.rotation = Vector3.ZERO
+		var dir_p := lever_pos - target_player_pos
+		dir_p.y = 0.0
+		var rion_mesh = player.get_node_or_null("RionMesh")
+		if rion_mesh and dir_p.length_squared() > 0.01:
+			rion_mesh.rotation.y = atan2(dir_p.x, dir_p.z)
+		_snap_to_ground(player)
+
+	# Posisikan Rallux menghadap Lever
+	if rallux:
+		rallux.visible = true
+		rallux.scale = Vector3(8.0, 8.0, 8.0)
+		rallux.global_position = target_rallux_pos
+		var dir_r := lever_pos - target_rallux_pos
+		dir_r.y = 0.0
+		if dir_r.length_squared() > 0.01:
+			rallux.rotation.y = atan2(dir_r.x, dir_r.z)
+		_snap_to_ground(rallux)
+		_play_rallux_anim(rallux, "idle")
+
+	# Kamera menyorot ke arah tuas dan pemain dari sudut yang pas dan lega
+	if camera_rig:
+		camera_rig.global_position = Vector3(-24.5, 3.8, 31.5)
+		camera_rig.look_at(lever_pos + Vector3(0.0, 0.8, 0.0), Vector3.UP)
+		camera_rig.yaw = 0.0
+		camera_rig.pitch = 16.0
+		camera_rig.zoom_distance = 6.8
+
+	# Kondisi ruangan ona program gelap dulu karena tuas masih 0%
+	var we = find_child("WorldEnvironment", true, false) as WorldEnvironment
+	if we and we.environment:
+		var is_solved: bool = GameManager.solved_levers.get("OnaProgramRoom_Lever", false)
+		we.environment.ambient_light_energy = 0.7 if is_solved else 0.05
+
+	# 3. Fade in dari hitam
+	await _fade_screen_in(0.5)
+
+	# 4. Aktifkan kembali kontrol gameplay
+	if player:
+		player.set_physics_process(true)
+		player.set_process_unhandled_input(true)
+	if camera_rig:
+		camera_rig.set_physics_process(true)
+		camera_rig.set_process(true)
+		camera_rig.set_process_unhandled_input(true)
+		var player_cam = camera_rig.find_child("*Camera*", true, false) as Camera3D
+		if player_cam:
+			player_cam.make_current()
+		if camera_rig.has_method("snap_to_target"):
+			camera_rig.snap_to_target()
+	if hud:
+		if hud.has_method("set_gameplay_ui_visible"):
+			hud.set_gameplay_ui_visible(true)
+		else:
+			hud.visible = true
+
+	GameManager.set_objective("Nyalakan tuas lampu di Ruang Perakitan Ona", 0, "")
+
+	# Dialog penjelasan fungsi Ruang Ona Program saat pertama kali masuk
+	if not GameManager.room_intro_seen.get("onaprogram", false):
+		GameManager.room_intro_seen["onaprogram"] = true
+		if StoryManager and StoryManager.has_method("start_dialogue"):
+			StoryManager.start_dialogue([
+				"Rallux: \"Selamat datang di Ruang Perakitan & Pemrograman Ona, Rion. Ruangan ini adalah laboratorium khusus tempat bodi robot Ona dirakit, sirkuit memorinya dipelihara, dan dok pengisian baterai utamanya berada.\"",
+				"Rion: \"Ooh, jadi ini tempat kelahiran Ona sekaligus ruang servis dan istirahatnya ya, Tuan Rallux!\"",
+				"Rallux: \"Betul sekali. Di sinilah prosesor Ona didinginkan dan memorinya ditata ulang setelah lelah beraktivitas. Lihat, Ona sedang beristirahat di dok pengisian daya di samping panel kontrol itu.\"",
+				"Rion: \"Ona kelihatan pulas banget... Ayo kita nyalakan tuas lampu di ruangan ini supaya daya dok pengisian baterainya pulih penuh dan Ona bisa segera bangun!\"",
+				"Rallux: \"Pintar sekali, Rion! Ayo kita hidupkan tuas lampunya sampai seratus persen!\""
+			], "Rallux")
+			await StoryManager.dialogue_finished
 
 ## Memutar node/mesh secara halus ke sudut target Y dengan lerp_angle
 func _smooth_rotate_y(node: Node3D, target_angle: float, duration: float = 0.35) -> void:
@@ -1106,6 +1442,14 @@ func _prompt_text_input(header: String, question: String, placeholder: String) -
 	line_edit.add_theme_stylebox_override("normal", le_sb)
 	vbox.add_child(line_edit)
 
+	var err_lbl := Label.new()
+	err_lbl.text = "Jawaban tidak boleh kosong. Harap isi setidaknya satu kata ya!"
+	err_lbl.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4, 1.0))
+	err_lbl.add_theme_font_size_override("font_size", 13)
+	err_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	err_lbl.visible = false
+	vbox.add_child(err_lbl)
+
 	var hbox_btn := HBoxContainer.new()
 	hbox_btn.alignment = BoxContainer.ALIGNMENT_END
 	vbox.add_child(hbox_btn)
@@ -1127,7 +1471,26 @@ func _prompt_text_input(header: String, question: String, placeholder: String) -
 
 	var on_submit = func():
 		var val: String = line_edit.text.strip_edges()
+		var words: PackedStringArray = val.split(" ", false)
+		if val.is_empty() or words.is_empty():
+			err_lbl.text = "Jawaban tidak boleh kosong. Harap isi setidaknya satu kata ya!"
+			err_lbl.visible = true
+			le_sb.border_color = Color(1.0, 0.35, 0.35, 0.9)
+			var orig_x: float = panel.position.x
+			var shake_tw := panel.create_tween()
+			for i in range(4):
+				var ox: float = 8.0 if (i % 2 == 0) else -8.0
+				shake_tw.tween_property(panel, "position:x", orig_x + ox, 0.04)
+			shake_tw.tween_property(panel, "position:x", orig_x, 0.04)
+			line_edit.grab_focus()
+			return
 		_text_input_submitted.emit(val)
+
+	line_edit.text_changed.connect(func(t: String):
+		if not t.strip_edges().is_empty():
+			err_lbl.visible = false
+			le_sb.border_color = Color(0.35, 0.5, 0.7, 0.7)
+	)
 
 	send_btn.pressed.connect(on_submit)
 	line_edit.text_submitted.connect(func(_t): on_submit.call())
@@ -1141,11 +1504,6 @@ func _prompt_text_input(header: String, question: String, placeholder: String) -
 	canvas.queue_free()
 	return result
 
-## Cutscene pagi di bengkel R1 (setelah fade "KEESOKAN HARINYA"):
-## Rion bangun di Point2, berjalan ke Point3, dialog hoam, Ona menyapa,
-## menghadap kapsul, pilihan sarapan, narasi layar hitam,
-## obrolan santai & refleksi mesin roket turbo ADHD, Rallux pamit,
-## lalu gameplay bantu Ona membersihkan lantai bengkel.
 func _play_r1_morning_intro() -> void:
 	var player: CharacterBody3D = find_child("Player", true, false) as CharacterBody3D
 	var camera_rig = find_child("CameraRig", true, false)
@@ -1170,6 +1528,13 @@ func _play_r1_morning_intro() -> void:
 			hud.set_gameplay_ui_visible(false)
 		else:
 			hud.visible = false
+	var mobile = find_child("MobileControls", true, false)
+	if mobile:
+		mobile.visible = false
+	var s_btn = find_child("SettingsBtn", true, false)
+	if s_btn:
+		s_btn.visible = false
+
 
 	if capsule:
 		capsule.visible = true
@@ -1339,8 +1704,8 @@ func _play_r1_morning_intro() -> void:
 
 	# 6. Pilihan respons pemain untuk sarapan
 	var choice_opts: Array[String] = [
-		"[ A ] \"Boleh, Tuan Rallux... perutku rasanya memang mulai keroncongan.\"",
-		"[ B ] \"Nanti dulu deh... dadaku masih agak deg-degan, belum nafsu.\""
+		"Boleh, Tuan Rallux... perutku rasanya memang mulai keroncongan.",
+		"Nanti dulu deh... dadaku masih agak deg-degan, belum nafsu."
 	]
 	var choice_idx: int = await _prompt_choice(choice_opts)
 	if choice_idx == 0:
@@ -1356,7 +1721,7 @@ func _play_r1_morning_intro() -> void:
 		var opt_b: Array[String] = [
 			"Rion: \"Nanti dulu deh, Tuan Rallux... habis kaget tadi, dadaku masih agak deg-degan. Rasanya belum nafsu makan apa-apa.\"",
 			"Rallux: \"Nggak apa-apa, Nak. Wajar kok kalau sehabis kaget perutmu terasa belum siap menerima makanan.\"",
-			"Rallux: \"Tapi kakek mau kasih tahu rahasia kecil: tubuh dan isi kepala kita itu cara kerjanya mirip sekali dengan mesin di kapsulmu. Kadang-kadang, rasa cemas dan deg-degan kita jadi lebih susah reda karena baterai tubuh kita lagi kosong.\"",
+			"Rallux: \"Tapi aku mau kasih tahu rahasia kecil: tubuh dan isi kepala kita itu cara kerjanya mirip sekali dengan mesin di kapsulmu. Kadang-kadang, rasa cemas dan deg-degan kita jadi lebih susah reda karena baterai tubuh kita lagi kosong.\"",
 			"Rion: \"Maksudnya... rasa deg-deganku susah hilang gara-gara belum makan?\"",
 			"Rallux: \"Tepat sekali! Kalau mesin kehabisan bahan bakar, mesinnya bakal bergetar kencang dan alarm di dalamnya gampang berbunyi panik.\"",
 			"Rallux: \"Begitu perutmu mendapat sarapan hangat, tubuhmu akan kirim kabar ke kepala kalau semuanya sudah aman dan tenang. Daripada membiarkan rasa deg-deganmu bertahan lama, yuk kita jalan pelan-pelan ke beranda luar sambil hirup udara pagi.\"",
@@ -1369,19 +1734,24 @@ func _play_r1_morning_intro() -> void:
 	var breakfast_narration: String = "Di bawah naungan beranda kebun yang sejuk dan semilir angin pagi, Rion menikmati sarapan hangat bersama Tuan Rallux dan Ona. Rasa hangat makanan mengembalikan energinya, dan mereka berbincang santai tanpa rasa takut lagi..."
 	await _show_black_screen_narration(breakfast_narration, 4.0)
 
-	# 8. Kembali ke dalam bengkel: Rion, Rallux, Ona santai di meja tengah (dekat Point3)
+	# 8. Kembali ke dalam bengkel: Rion, Rallux, Ona santai di meja tengah (lurus lorong Point3)
+	if player:
+		player.global_position = p3_pos + Vector3(-2.4, 0.0, 0.0)
+		player.velocity = Vector3.ZERO
+		player.rotation = Vector3.ZERO
+		_snap_to_ground(player)
+
 	if ona:
-		ona.global_position = p3_pos + Vector3(-1.4, 0.0, 1.2)
+		ona.global_position = p3_pos + Vector3(1.2, 0.0, -0.85)
+		_snap_to_ground(ona)
 		if ona.has_method("play_animation"):
 			ona.play_animation("idle")
 
 	if rallux:
-		rallux.global_position = p3_pos + Vector3(1.4, 0.0, 1.2)
+		rallux.global_position = p3_pos + Vector3(1.2, 0.0, 0.85)
+		_snap_to_ground(rallux)
 		if rallux.has_method("play_animation"):
 			rallux.play_animation("idle")
-
-	if player:
-		player.global_position = p3_pos + Vector3(0.0, 0.0, -1.6)
 
 	if ona and player:
 		var d_o: Vector3 = player.global_position - ona.global_position
@@ -1396,14 +1766,15 @@ func _play_r1_morning_intro() -> void:
 			rallux.rotation.y = atan2(d_r.x, d_r.z)
 
 	if rion_mesh and player:
-		var d_mid: Vector3 = (p3_pos + Vector3(0.0, 0.0, 1.2)) - player.global_position
+		var d_mid: Vector3 = (p3_pos + Vector3(1.2, 0.0, 0.0)) - player.global_position
 		d_mid.y = 0.0
 		if d_mid.length_squared() > 0.01:
 			rion_mesh.rotation.y = atan2(d_mid.x, d_mid.z)
 
-	if camera_rig:
-		camera_rig.global_position = p3_pos + Vector3(-6.5, 3.2, -0.3)
-		camera_rig.look_at(p3_pos + Vector3(0.0, 1.2, 0.0), Vector3.UP)
+	# Kamera disorot dari belakang Rion agak jauhan agar Rallux dan Ona terlihat jelas
+	if camera_rig and player:
+		camera_rig.global_position = player.global_position + Vector3(-4.6, 2.1, -0.6)
+		camera_rig.look_at(p3_pos + Vector3(1.2, 1.1, 0.2), Vector3.UP)
 
 	await _fade_screen_in(0.5)
 
@@ -1453,28 +1824,35 @@ func _play_r1_morning_intro() -> void:
 	StoryManager.start_dialogue(turbo_dialog, "Rion")
 	await StoryManager.dialogue_finished
 
-	# 11. Tuan Rallux melangkah keluar dan menghilang dari pandangan
-	if rallux:
-		var route: Array[Vector3] = [rallux.global_position]
-		if storypoints:
-			for pname in ["Point3", "Point2", "Point1", "Point4"]:
-				var m: Node3D = storypoints.get_node_or_null(pname) as Node3D
-				if m:
-					route.append(m.global_position)
-		_run_rallux_leave(rallux, route, 8.0)
-		var ral_fade = create_tween()
-		ral_fade.tween_property(rallux, "scale", Vector3.ZERO, 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-		await ral_fade.finished
-		rallux.visible = false
+	# 11. Transisi fade: Tuan Rallux berangkat ke kebun, dipindahkan ke depan pintu keluar (Point4)
+	await _fade_screen_out(0.4)
 
-	# 12. Rion & Ona berhadapan untuk dialog penutup
+	if rallux:
+		var p4_node: Node3D = null
+		if storypoints:
+			p4_node = storypoints.get_node_or_null("Point4") as Node3D
+		var door_pos: Vector3 = p4_node.global_position if p4_node else Vector3(-67.2, 0.0, -43.3)
+		rallux.global_position = door_pos
+		rallux.rotation.y = deg_to_rad(-90.0) # Menghadap ke arah pintu keluar
+		rallux.scale = Vector3(8.0, 8.0, 8.0)
+		rallux.visible = true
+		_snap_to_ground(rallux)
+		_play_rallux_anim(rallux, "idle")
+
+	# 12. Ona tetap di posisi dan rotasi awal, Rion menghadap Ona untuk dialog penutup
 	if player and ona:
 		var face_dir: Vector3 = ona.global_position - player.global_position
 		face_dir.y = 0.0
 		if face_dir.length_squared() > 0.01:
 			if rion_mesh:
 				rion_mesh.rotation.y = atan2(face_dir.x, face_dir.z)
-			ona.rotation.y = atan2(face_dir.x, face_dir.z)
+
+	if camera_rig and player and ona:
+		camera_rig.global_position = player.global_position + Vector3(-4.0, 1.9, -0.4)
+		camera_rig.look_at(ona.global_position + Vector3(0.0, 1.1, 0.0), Vector3.UP)
+
+	await _fade_screen_in(0.4)
+
 
 	var cleanup_dialog: Array[String] = [
 		"Rion: \"Ona... lihat deh lantainya. Barangnya masih berceceran ke mana-mana ya?\"",
@@ -1514,9 +1892,9 @@ func _play_r1_morning_intro() -> void:
 	# Kamera meluncur menyorot Rak 1 dan Rion
 	if camera_rig:
 		var cam_slide = create_tween().set_parallel(true)
-		cam_slide.tween_property(camera_rig, "global_position", Vector3(2.4, 2.5, 27.5), 1.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		cam_slide.tween_property(camera_rig, "global_position", Vector3(2.4, 2.3, 28.5), 1.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		await cam_slide.finished
-		camera_rig.look_at(Vector3(2.4, 1.4, 37.6), Vector3.UP)
+		camera_rig.look_at(Vector3(2.4, 1.3, 37.6), Vector3.UP)
 
 	var rak1_guide: Array[String] = [
 		"Ona: \"Sistem pemandu aktif! Untuk rak pertama ini, tugas kita cukup mengumpulkan tiga Papan Sirkuit, tiga Roda Gigi, dan tiga Baut.\""
@@ -1557,6 +1935,9 @@ func _play_r1_morning_intro() -> void:
 		var player_cam = camera_rig.find_child("*Camera*", true, false) as Camera3D
 		if player_cam:
 			player_cam.make_current()
+		camera_rig.yaw = PI
+		camera_rig.pitch = 18.0
+		camera_rig.zoom_distance = 6.8
 		if camera_rig.has_method("snap_to_target"):
 			camera_rig.snap_to_target()
 
@@ -1890,13 +2271,13 @@ func play_battery_ec_cutscene() -> void:
 		"Rion: \"Ona kan selalu ramah, sopan, terus sabar banget nemenin aku... Tapi, memangnya dulu Ona pernah marah sama Tuan Rallux?\"",
 		"Rallux: \"Haha... pernah, Rion. Malah bukan cuma pernah, kami berdua dulu pernah saling marah dan mendiamkan satu sama lain seharian penuh.\"",
 		"Rion: \"Hah?! Serius?! Tuan Rallux sama Ona pernah saling marah?! Kok bisa? Tuan Rallux kan baik banget, terus Ona juga gak kelihatan galak sama sekali!\"",
-		"Rallux: \"Rion, aku ini orang biasa. Aku tidak selalu jadi orang yang sempurna. Ada hari-hari di mana aku capek sekali, banyak alat yang rusak, lalu kepalaku pusing. Waktu itu, kakek sempat bicara dengan nada tinggi dan tidak sengaja membentak Ona karena kakek sedang terburu-buru.\"",
+		"Rallux: \"Rion, aku ini orang biasa. Aku tidak selalu jadi orang yang sempurna. Ada hari-hari di mana aku capek sekali, banyak alat yang rusak, lalu kepalaku pusing. Waktu itu, aku sempat bicara dengan nada tinggi dan tidak sengaja membentak Ona karena aku sedang terburu-buru.\"",
 		"Rion: \"Terus... Onanya gimana?\"",
-		"Rallux: \"Ona kaget, lalu layarnya berkedip merah dan dia mogok bicara. Dia mengunci diri di ruang program dan menolak membantuku. Saat itu aku sadar, robot maupun manusia, kalau diperlakukan tidak adil, pasti hatinya terasa sakit dan kesal.\"",
+		"Rallux: \"Ona kaget, lalu layarnya berkedip merah dan dia mogok bicara. Dia mengunci diri di ruang perakitan dan menolak membantuku. Saat itu aku sadar, robot maupun manusia, kalau diperlakukan tidak adil, pasti hatinya terasa sakit dan kesal.\"",
 		"Rion: \"Kadang... kalau pikiranku lagi lari kencang banget atau pas aku lagi pengen main tapi disuruh diam, dadaku juga rasanya panas dan pengen marah, Tuan Rallux. Terus aku merasa bersalah... aku kira anak yang marah itu anak yang jahat.\"",
 		"Rallux: \"Rasa marah itu bukan tanda kalau kamu anak jahat, Rion. Rasa marah itu cuma alarm di dalam dada kita yang memberitahu kalau ada sesuatu yang bikin kita tidak nyaman atau capek. Yang membuat masalah jadi rumit itu bukan rasa marahnya, tapi apa yang kita lakukan saat sedang marah.\"",
 		"Rion: \"Lalu waktu itu, Tuan Rallux sama Ona gimana caranya bisa baikan lagi?\"",
-		"Rallux: \"Kakek menunggu sampai kepala kakek dingin dulu. Setelah napas kakek tenang, kakek yang pertama datang mengetuk pintu ruangan Ona. Kakek meminta maaf dengan jujur, mengakui kalau kakek salah karena sudah membentak. Begitu mendengar kakek minta maaf, Ona juga minta maaf karena sudah mendiamkan kakek. Kami berpelukan, dan bengkel ini kembali terasa nyaman.\"",
+		"Rallux: \"Aku menunggu sampai kepalaku dingin dulu. Setelah napasku tenang, aku yang pertama datang mengetuk pintu ruangan Ona. Aku meminta maaf dengan jujur, mengakui kalau aku salah karena sudah membentak. Begitu mendengar aku minta maaf, Ona juga minta maaf karena sudah mendiamkanku. Kami berpelukan, dan bengkel ini kembali terasa nyaman.\"",
 		"Rion: \"Jadi... gak apa-apa ya kalau kita salah, asalkan kita berani minta maaf dan memperbaiki hubungan lagi?\"",
 		"Rallux: \"Tepat sekali, petualang kecil! Mengakui kesalahan dan berani minta maaf itu butuh keberanian yang sangat besar. Orang hebat bukan orang yang gak pernah marah, tapi orang yang tahu cara berbaikan kembali.\""
 	]

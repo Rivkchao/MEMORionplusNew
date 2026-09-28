@@ -66,19 +66,39 @@ func _apply_responsive_layout() -> void:
 	if vp_size.x <= 0 or vp_size.y <= 0:
 		return
 	
+	var scale_y: float = vp_size.y / 1080.0
+	var scale_factor: float = clampf(scale_y, 0.5, 1.5)
+	
 	# 1. Responsif FrameMenu (Texture portrait diputar -90 deg agar menutup seluruh layar di segala rasio)
 	if frame_menu:
 		frame_menu.rotation = -PI / 2.0
 		frame_menu.position = Vector2(0, vp_size.y)
 		frame_menu.size = Vector2(vp_size.y, vp_size.x)
 	
-	# 2. Responsif Planet & Hiasan Kanan
+	# 2. Responsif Planet & Hiasan Kanan (SpriteBar)
 	if planet:
-		planet.position = Vector2(vp_size.x - 240.0, vp_size.y * 0.44)
+		planet.scale = Vector2.ONE * scale_factor
+		planet.position = Vector2(vp_size.x - 240.0 * scale_factor, vp_size.y * 0.44)
 	if sprite_bar:
-		sprite_bar.position = Vector2(vp_size.x - 171.0, vp_size.y - 123.0)
+		sprite_bar.scale = Vector2(0.47, 0.47) * scale_factor
+		sprite_bar.position = Vector2(vp_size.x - 171.0 * scale_factor, vp_size.y - 123.0 * scale_factor)
 	
-	# 3. Responsif Menu Card (BgBtn) dan Tombol Menu
+	# 3. Responsif Teks Hello / Greeting Label ("Halo, Penjelajah Bintang!")
+	if greeting_label:
+		greeting_label.add_theme_font_size_override("font_size", clampi(int(24.0 * scale_factor), 14, 28))
+		greeting_label.position.x = 127.0 * scale_factor
+		greeting_label.position.y = vp_size.y - (89.0 * scale_factor)
+	
+	# 4. Responsif Logo & Logo2
+	if logo_rect:
+		logo_rect.scale = Vector2.ONE * scale_factor
+		logo_rect.position = Vector2(75.0 * scale_factor, 42.0 * scale_factor)
+	if logo2:
+		logo2.scale = Vector2.ONE * scale_factor
+		var l2_w = 800.0 * scale_factor
+		logo2.position = Vector2(vp_size.x - l2_w - (115.0 * scale_factor), 83.0 * scale_factor)
+	
+	# 5. Responsif Menu Card (BgBtn) dan Tombol Menu
 	# Menghitung posisi proporsional di kiri layar agar cocok di rasio 16:9, 18:9, 19.5:9, 20:9, 21:9, maupun 4:3
 	if bg_btn:
 		var card_left = clampf(vp_size.x * 0.11, 80.0, 320.0)

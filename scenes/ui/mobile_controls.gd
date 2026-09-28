@@ -16,6 +16,11 @@ class_name MobileControls
 @onready var btn_interact: Button = $ActionButtons/InteractBtn
 @onready var btn_drop: Button = $ActionButtons/DropBtn
 
+@onready var lbl_jump: Label = $ActionButtons/JumpBtn/BtnLabel
+@onready var lbl_sprint: Label = $ActionButtons/SprintBtn/BtnLabel
+@onready var lbl_interact: Label = $ActionButtons/InteractBtn/BtnLabel
+@onready var lbl_drop: Label = $ActionButtons/DropBtn/BtnLabel
+
 @onready var touch_camera_area: Control = $TouchCameraArea
 
 # State Joystick
@@ -55,13 +60,19 @@ func _ready() -> void:
 	btn_jump.button_up.connect(_on_jump_up)
 	
 	btn_sprint.icon = ICON_WALK
-	btn_sprint.text = ""
+	if lbl_sprint:
+		lbl_sprint.text = "Jalan"
 	btn_sprint.pressed.connect(_on_sprint_pressed)
 	
-	btn_interact.text = ""
+	if lbl_interact:
+		lbl_interact.text = "Aksi"
 	btn_interact.button_down.connect(_on_interact_down)
 	btn_interact.button_up.connect(_on_interact_up)
 	
+	if lbl_jump:
+		lbl_jump.text = "Lompat"
+	if lbl_drop:
+		lbl_drop.text = "Lepas"
 	btn_drop.pressed.connect(_on_drop_pressed)
 	btn_drop.visible = false
 	
@@ -156,6 +167,10 @@ func _update_ui_state(delta: float) -> void:
 				var tween = create_tween()
 				tween.tween_property(btn_drop, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			btn_interact.modulate = Color(0.4, 1.0, 0.7, 1.0)
+			if lbl_interact:
+				lbl_interact.text = "Aksi"
+			if lbl_drop:
+				lbl_drop.text = "Lepas"
 			return
 
 		# Cek fitur khusus bengkel R1 (Unpacking, Levers, Doors) HANYA jika berada di R1
@@ -178,6 +193,10 @@ func _update_ui_state(delta: float) -> void:
 					var p_scale = 1.0 + sin(_pulse_time) * 0.05
 					btn_interact.scale = Vector2(p_scale, p_scale)
 					btn_interact.modulate = Color(1.0, 0.85, 0.3, 1.0)
+					if lbl_interact:
+						lbl_interact.text = "Aksi"
+					if lbl_drop:
+						lbl_drop.text = "Lepas"
 					return
 				elif unpack_mgr.has_method("get_nearest_item_distance") and unpack_mgr.get_nearest_item_distance() <= unpack_mgr.interact_distance:
 					btn_drop.visible = false
@@ -185,6 +204,8 @@ func _update_ui_state(delta: float) -> void:
 					var p_scale = 1.0 + sin(_pulse_time) * 0.05
 					btn_interact.scale = Vector2(p_scale, p_scale)
 					btn_interact.modulate = Color(0.4, 1.0, 0.7, 1.0)
+					if lbl_interact:
+						lbl_interact.text = "Ambil"
 					return
 
 			# 3. Cek tuas (Lever)
@@ -199,6 +220,8 @@ func _update_ui_state(delta: float) -> void:
 				var p_scale = 1.0 + sin(_pulse_time) * 0.05
 				btn_interact.scale = Vector2(p_scale, p_scale)
 				btn_interact.modulate = Color(1.0, 0.6, 0.2, 1.0)
+				if lbl_interact:
+					lbl_interact.text = "Aksi"
 				return
 
 			# 4. Cek pintu interior R1
@@ -213,6 +236,8 @@ func _update_ui_state(delta: float) -> void:
 				var p_scale = 1.0 + sin(_pulse_time) * 0.05
 				btn_interact.scale = Vector2(p_scale, p_scale)
 				btn_interact.modulate = Color(0.4, 0.9, 1.0, 1.0)
+				if lbl_interact:
+					lbl_interact.text = "Aksi"
 				return
 
 		# 5. Objek interaktif umum (Interactable)
@@ -222,9 +247,13 @@ func _update_ui_state(delta: float) -> void:
 			var pulse_scale = 1.0 + sin(_pulse_time) * 0.05
 			btn_interact.scale = Vector2(pulse_scale, pulse_scale)
 			btn_interact.modulate = Color(0.4, 1.0, 0.7, 1.0)
+			if lbl_interact:
+				lbl_interact.text = "Aksi"
 		else:
 			btn_interact.scale = Vector2.ONE
 			btn_interact.modulate = Color(1.0, 1.0, 1.0, 0.92)
+			if lbl_interact:
+				lbl_interact.text = "Aksi"
 
 func _is_ui_blocking() -> bool:
 	if StoryManager != null:
@@ -397,10 +426,14 @@ func _on_sprint_pressed() -> void:
 	if is_sprint_toggled:
 		btn_sprint.icon = ICON_SPRINT
 		btn_sprint.modulate = Color(1.0, 0.9, 0.3, 1.0)
+		if lbl_sprint:
+			lbl_sprint.text = "Lari"
 		Input.action_press("sprint")
 	else:
 		btn_sprint.icon = ICON_WALK
 		btn_sprint.modulate = Color(1.0, 1.0, 1.0, 0.9)
+		if lbl_sprint:
+			lbl_sprint.text = "Jalan"
 		Input.action_release("sprint")
 
 func _on_interact_down() -> void:

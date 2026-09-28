@@ -19,7 +19,11 @@ func _setup_animation_tree() -> void:
 			_playback.start("idle")
 
 func play_animation(animation_name: String) -> void:
-	if _playback:
+	if animation_player:
+		var anim = animation_player.get_animation(animation_name)
+		if anim and (animation_name == "run" or animation_name == "idle" or animation_name == "searching"):
+			anim.loop_mode = Animation.LOOP_LINEAR
+	if animation_tree and animation_tree.active and _playback:
 		_playback.travel(animation_name)
 	elif animation_player and animation_player.current_animation != animation_name:
 		animation_player.play(animation_name)

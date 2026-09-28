@@ -30,6 +30,7 @@ var _water_material: ShaderMaterial = null
 var _terrain_material: Resource = null
 var _grass_material: ShaderMaterial = null
 var _rock_materials: Array[ShaderMaterial] = []
+var _tree_materials: Array[StandardMaterial3D] = []
 
 func _ready() -> void:
 	if water_mesh != null:
@@ -58,6 +59,22 @@ func _ready() -> void:
 				break
 
 	_collect_rock_materials()
+	_collect_tree_materials()
+
+func _collect_tree_materials() -> void:
+	for path in ["res://Distribute/Pohon1.tscn", "res://Distribute/Pohon2.tscn", "res://Distribute/Pohon3.tscn"]:
+		var p_scene = load(path) as PackedScene
+		if p_scene:
+			var state = p_scene.get_state()
+			for i in range(state.get_node_count()):
+				for p_idx in range(state.get_node_property_count(i)):
+					if state.get_node_property_name(i, p_idx) == "mesh":
+						var m = state.get_node_property_value(i, p_idx) as Mesh
+						if m:
+							for s in range(m.get_surface_count()):
+								var mat = m.surface_get_material(s) as StandardMaterial3D
+								if mat and mat.resource_name.begins_with("Bark") and not _tree_materials.has(mat):
+									_tree_materials.append(mat)
 
 func _collect_rock_materials() -> void:
 	var rocks = get_tree().get_nodes_in_group("glowing_rock")
@@ -201,6 +218,11 @@ func _update_terrain_glow(t: float) -> void:
 
 	if _grass_material != null:
 		_grass_material.set_shader_parameter("emission_strength", grass_mesh_glow)
+	
+	var tree_glow: float = lerpf(0.5, 1.5, glow_factor)
+	for t_mat in _tree_materials:
+		if t_mat:
+			t_mat.emission_energy_multiplier = tree_glow
 
 func _update_rock_glow(t: float) -> void:
 	if _rock_materials.is_empty():

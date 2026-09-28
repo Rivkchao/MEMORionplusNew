@@ -72,7 +72,7 @@ func _on_objective_complete() -> void:
 
 func update_flower_hud() -> void:
 	if hud:
-		hud.set_objective("Petik bunga mekar di kebun bersama Ona (Tekan E di dekat bunga)")
+		hud.set_objective("Petik bunga mekar di kebun bersama Ona (Tekan E / Aksi di dekat bunga)")
 		# Jumlah bunga disembunyikan (hanya dipakai untuk teka-teki jumlah saat dialog)
 		if hud.has_method("set_progress"):
 			hud.set_progress(0, 0, "")

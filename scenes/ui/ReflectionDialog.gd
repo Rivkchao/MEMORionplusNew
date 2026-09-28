@@ -202,13 +202,12 @@ func _validate_and_submit(raw_text: String) -> void:
 	var cleaned = raw_text.strip_edges()
 	var lower = cleaned.to_lower()
 
-	# 1. Cek jika kosong
-	if cleaned.is_empty():
-		_show_validation_error("Silakan ketik jawabanmu terlebih dahulu ya...")
-		return
-
-	# 2. Cek kata kasar / profanity
 	var words = lower.split(" ", false)
+
+	# 1. Cek jika kosong
+	if cleaned.is_empty() or words.is_empty():
+		_show_validation_error("Jawaban tidak boleh kosong. Harap isi setidaknya satu kata ya!")
+		return
 	for w in words:
 		var clean_w = ""
 		for char in w:

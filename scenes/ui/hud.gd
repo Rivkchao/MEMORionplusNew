@@ -37,6 +37,10 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_apply_responsive_layout)
 	_apply_responsive_layout()
 
+	if GameManager and GameManager.sleep_transition_done and not GameManager.r1_morning_intro_done:
+		set_gameplay_ui_visible(false)
+
+
 func _apply_responsive_layout() -> void:
 	if not is_inside_tree():
 		return
@@ -212,7 +216,11 @@ func _on_dialogue_finished() -> void:
 		else:
 			mobile.visible = true
 
+func is_gameplay_ui_visible() -> bool:
+	return _gameplay_ui_visible
+
 func set_gameplay_ui_visible(is_vis: bool) -> void:
+
 	_gameplay_ui_visible = is_vis
 	for node_name in ["Prompt", "ObjectivePanel", "SettingsBtn"]:
 		var n = find_child(node_name, true, false)
