@@ -21,11 +21,36 @@ signal closed
 # Controls References
 @onready var mobile_mode_option: OptionButton = %MobileModeOption
 
+# Mobile Layout References
+@onready var mobile_element_option: OptionButton = %MobileElementOption
+@onready var mobile_pos_x_slider: HSlider = %MobilePosXSlider
+@onready var mobile_pos_x_label: Label = %MobilePosXValue
+@onready var mobile_pos_y_slider: HSlider = %MobilePosYSlider
+@onready var mobile_pos_y_label: Label = %MobilePosYValue
+@onready var mobile_size_slider: HSlider = %MobileSizeSlider
+@onready var mobile_size_label: Label = %MobileSizeValue
+@onready var mobile_opacity_slider: HSlider = %MobileOpacitySlider
+@onready var mobile_opacity_label: Label = %MobileOpacityValue
+@onready var reset_element_btn: Button = %ResetElementBtn
+@onready var reset_all_layout_btn: Button = %ResetAllLayoutBtn
+
 # Action Buttons
 @onready var save_btn: Button = %SaveBtn
 @onready var reset_btn: Button = %ResetBtn
 @onready var close_btn: Button = %CloseBtn
 @onready var panel_container: PanelContainer = %PanelContainer
+
+const MOBILE_ELEMENTS: Array[Dictionary] = [
+	{"id": "joystick", "name": "🎮 Joystick (Analog)"},
+	{"id": "interact", "name": "✋ Tombol Aksi (Ambil / Interaksi)"},
+	{"id": "jump", "name": "🦘 Tombol Lompat"},
+	{"id": "sprint", "name": "⚡ Tombol Lari / Jalan"},
+	{"id": "drop", "name": "🔻 Tombol Lepas Item"}
+]
+
+var _current_mobile_element_id: String = "joystick"
+var _initial_mobile_layout: Dictionary = {}
+var _spawned_preview_controls: CanvasLayer = null
 
 var _was_paused_before_open: bool = false
 var _initial_brightness: float = 1.0
@@ -64,6 +89,12 @@ func _populate_options() -> void:
 		mobile_mode_option.add_item("Otomatis (Layar Sentuh)")
 		mobile_mode_option.add_item("Selalu Aktif (Paksa Tampil)")
 		mobile_mode_option.add_item("Nonaktif (Keyboard/Mouse)")
+	
+	# Populate Pilihan Elemen Kontrol Mobile
+	if mobile_element_option:
+		mobile_element_option.clear()
+		for elem in MOBILE_ELEMENTS:
+			mobile_element_option.add_item(elem["name"])
 
 func _connect_signals() -> void:
 	brightness_slider.value_changed.connect(_on_brightness_changed)
@@ -81,11 +112,28 @@ func _connect_signals() -> void:
 	if mobile_mode_option:
 		mobile_mode_option.item_selected.connect(_on_mobile_mode_selected)
 	
+	if mobile_element_option:
+		mobile_element_option.item_selected.connect(_on_mobile_element_selected)
+	
+	if mobile_pos_x_slider:
+		mobile_pos_x_slider.value_changed.connect(_on_mobile_pos_x_changed)
+	if mobile_pos_y_slider:
+		mobile_pos_y_slider.value_changed.connect(_on_mobile_pos_y_changed)
+	if mobile_size_slider:
+		mobile_size_slider.value_changed.connect(_on_mobile_size_changed)
+	if mobile_opacity_slider:
+		mobile_opacity_slider.value_changed.connect(_on_mobile_opacity_changed)
+	
+	if reset_element_btn:
+		reset_element_btn.pressed.connect(_on_reset_element_pressed)
+	if reset_all_layout_btn:
+		reset_all_layout_btn.pressed.connect(_on_reset_all_layout_pressed)
+	
 	save_btn.pressed.connect(_on_save_pressed)
 	reset_btn.pressed.connect(_on_reset_pressed)
 	close_btn.pressed.connect(_on_close_pressed)
 
-	for btn in [save_btn, reset_btn, close_btn]:
+	for btn in [save_btn, reset_btn, close_btn, reset_element_btn, reset_all_layout_btn]:
 		if btn:
 			btn.pivot_offset = btn.size / 2.0
 			btn.button_down.connect(func():
@@ -135,6 +183,9 @@ func _sync_from_manager() -> void:
 	# Mobile Controls Mode
 	if mobile_mode_option:
 		mobile_mode_option.selected = clamp(SettingsManager.mobile_controls_mode, 0, 2)
+	
+	# Mobile Layout Sliders
+	_sync_mobile_sliders_for_current_element()
 
 # ----------------------------------------------------
 # Event Handlers: Live Tweaks
@@ -178,6 +229,105 @@ func _update_vol_label(lbl: Label, val: float) -> void:
 func _on_mobile_mode_selected(index: int) -> void:
 	SettingsManager.set_mobile_controls_mode(index)
 
+# ----------------------------------------------------
+# Event Handlers: Mobile Controls Layout Live Editing
+# ----------------------------------------------------
+func _sync_mobile_sliders_for_current_element() -> void:
+	if SettingsManager == null:
+		return
+	
+	var px = SettingsManager.get_mobile_control_property(_current_mobile_element_id, "pos_x", 0.0)
+	var py = SettingsManager.get_mobile_control_property(_current_mobile_element_id, "pos_y", 0.0)
+	var s = SettingsManager.get_mobile_control_property(_current_mobile_element_id, "scale", 1.0)
+	var op = SettingsManager.get_mobile_control_property(_current_mobile_element_id, "opacity", 0.95)
+	
+	if mobile_pos_x_slider:
+		mobile_pos_x_slider.set_value_no_signal(px)
+		_update_pos_label(mobile_pos_x_label, px)
+	if mobile_pos_y_slider:
+		mobile_pos_y_slider.set_value_no_signal(py)
+		_update_pos_label(mobile_pos_y_label, py)
+	if mobile_size_slider:
+		mobile_size_slider.set_value_no_signal(s)
+		_update_scale_label(mobile_size_label, s)
+	if mobile_opacity_slider:
+		mobile_opacity_slider.set_value_no_signal(op)
+		_update_opacity_label(mobile_opacity_label, op)
+
+func _on_mobile_element_selected(index: int) -> void:
+	if index >= 0 and index < MOBILE_ELEMENTS.size():
+		_current_mobile_element_id = MOBILE_ELEMENTS[index]["id"]
+		_sync_mobile_sliders_for_current_element()
+		var mc = _find_mobile_controls()
+		if mc and mc.has_method("pulse_element"):
+			mc.pulse_element(_current_mobile_element_id)
+
+func _on_mobile_pos_x_changed(val: float) -> void:
+	SettingsManager.set_mobile_control_property(_current_mobile_element_id, "pos_x", val)
+	_update_pos_label(mobile_pos_x_label, val)
+
+func _on_mobile_pos_y_changed(val: float) -> void:
+	SettingsManager.set_mobile_control_property(_current_mobile_element_id, "pos_y", val)
+	_update_pos_label(mobile_pos_y_label, val)
+
+func _on_mobile_size_changed(val: float) -> void:
+	SettingsManager.set_mobile_control_property(_current_mobile_element_id, "scale", val)
+	_update_scale_label(mobile_size_label, val)
+
+func _on_mobile_opacity_changed(val: float) -> void:
+	SettingsManager.set_mobile_control_property(_current_mobile_element_id, "opacity", val)
+	_update_opacity_label(mobile_opacity_label, val)
+
+func _update_pos_label(lbl: Label, val: float) -> void:
+	if lbl == null:
+		return
+	var ival = int(round(val))
+	if ival > 0:
+		lbl.text = "+%d px" % ival
+	elif ival < 0:
+		lbl.text = "%d px" % ival
+	else:
+		lbl.text = "0 px"
+
+func _update_scale_label(lbl: Label, val: float) -> void:
+	if lbl:
+		lbl.text = "%d%%" % int(round(val * 100.0))
+
+func _update_opacity_label(lbl: Label, val: float) -> void:
+	if lbl:
+		lbl.text = "%d%%" % int(round(val * 100.0))
+
+func _on_reset_element_pressed() -> void:
+	SettingsManager.reset_mobile_control_element(_current_mobile_element_id)
+	_sync_mobile_sliders_for_current_element()
+	var mc = _find_mobile_controls()
+	if mc and mc.has_method("pulse_element"):
+		mc.pulse_element(_current_mobile_element_id)
+
+func _on_reset_all_layout_pressed() -> void:
+	SettingsManager.reset_mobile_layout()
+	_sync_mobile_sliders_for_current_element()
+	var mc = _find_mobile_controls()
+	if mc and mc.has_method("pulse_element"):
+		mc.pulse_element(_current_mobile_element_id)
+
+func _find_mobile_controls() -> Node:
+	if _spawned_preview_controls != null and is_instance_valid(_spawned_preview_controls):
+		return _spawned_preview_controls
+	return get_tree().root.find_child("MobileControls", true, false)
+
+func _find_or_create_mobile_controls_preview() -> Node:
+	var existing = _find_mobile_controls()
+	if existing != null:
+		return existing
+	
+	var mc_res = load("res://scenes/ui/MobileControls.tscn")
+	if mc_res:
+		_spawned_preview_controls = mc_res.instantiate()
+		get_tree().root.add_child(_spawned_preview_controls)
+		return _spawned_preview_controls
+	return null
+
 func _on_save_pressed() -> void:
 	SettingsManager.save_settings()
 	close()
@@ -198,12 +348,14 @@ func _on_close_pressed() -> void:
 		SettingsManager.window_mode_index = _initial_window_mode
 		SettingsManager.resolution_index = _initial_resolution
 		SettingsManager.mobile_controls_mode = _initial_mobile_mode
+		SettingsManager.mobile_layout = _initial_mobile_layout.duplicate(true)
 		
 		SettingsManager._apply_brightness()
 		SettingsManager._apply_bus_volume(SettingsManager._bus_master, _initial_volume_general)
 		SettingsManager._apply_bus_volume(SettingsManager._bus_bgm, _initial_volume_bgm)
 		SettingsManager._apply_bus_volume(SettingsManager._bus_sfx, _initial_volume_sfx)
 		SettingsManager.mobile_controls_toggled.emit(SettingsManager.is_mobile_controls_active())
+		SettingsManager.mobile_layout_updated.emit()
 		
 		# Hanya terapkan ulang display jika user sempat mengubahnya saat di menu
 		if display_changed:
@@ -224,12 +376,21 @@ func open() -> void:
 		_initial_window_mode = SettingsManager.window_mode_index
 		_initial_resolution = SettingsManager.resolution_index
 		_initial_mobile_mode = SettingsManager.mobile_controls_mode
+		_initial_mobile_layout = SettingsManager.mobile_layout.duplicate(true)
 	
 	var current_scene = get_tree().current_scene
 	if current_scene != null and current_scene.name != "MainMenu":
 		get_tree().paused = true
 	
 	_sync_from_manager()
+	
+	# Aktifkan mode preview pada MobileControls untuk live editing
+	var mobile_node = _find_or_create_mobile_controls_preview()
+	if mobile_node and mobile_node.has_method("set_preview_mode"):
+		mobile_node.set_preview_mode(true)
+		if mobile_node.has_method("pulse_element"):
+			mobile_node.pulse_element(_current_mobile_element_id)
+	
 	visible = true
 	modulate.a = 0.0
 	panel_container.scale = Vector2(0.9, 0.9)
@@ -240,6 +401,14 @@ func open() -> void:
 	tween.tween_property(panel_container, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func close() -> void:
+	var mobile_node = _find_mobile_controls()
+	if mobile_node and mobile_node.has_method("set_preview_mode"):
+		mobile_node.set_preview_mode(false)
+	
+	if _spawned_preview_controls != null and is_instance_valid(_spawned_preview_controls):
+		_spawned_preview_controls.queue_free()
+		_spawned_preview_controls = null
+	
 	var tween = create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tween.tween_property(self, "modulate:a", 0.0, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	tween.tween_property(panel_container, "scale", Vector2(0.9, 0.9), 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)

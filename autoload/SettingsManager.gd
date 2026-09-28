@@ -3,6 +3,7 @@ extends Node
 
 signal settings_saved
 signal mobile_controls_toggled(active: bool)
+signal mobile_layout_updated
 signal resolution_changed(index: int)
 signal window_mode_changed(index: int)
 
@@ -29,6 +30,40 @@ enum MobileControlsMode {
 	ALWAYS_OFF = 2
 }
 
+# Tata letak default untuk kustomisasi kontrol mobile
+const DEFAULT_MOBILE_LAYOUT: Dictionary = {
+	"joystick": {
+		"pos_x": 0.0,
+		"pos_y": 0.0,
+		"scale": 1.0,
+		"opacity": 0.85
+	},
+	"interact": {
+		"pos_x": 0.0,
+		"pos_y": 0.0,
+		"scale": 1.0,
+		"opacity": 0.95
+	},
+	"jump": {
+		"pos_x": 0.0,
+		"pos_y": 0.0,
+		"scale": 1.0,
+		"opacity": 0.95
+	},
+	"sprint": {
+		"pos_x": 0.0,
+		"pos_y": 0.0,
+		"scale": 1.0,
+		"opacity": 0.95
+	},
+	"drop": {
+		"pos_x": 0.0,
+		"pos_y": 0.0,
+		"scale": 1.0,
+		"opacity": 0.95
+	}
+}
+
 # --- State Pengaturan ---
 var brightness: float = 1.0 # 0.0 (gelap total) hingga 1.0 (normal/terang penuh)
 var volume_general: float = 0.8 # 0.0 - 1.0 (Master)
@@ -37,6 +72,13 @@ var volume_sfx: float = 0.8 # 0.0 - 1.0 (SFX)
 var resolution_index: int = 0 # 0 = 1080p, 1 = 720p, 2 = 480p
 var window_mode_index: int = 0 # 0 = Windowed, 1 = Fullscreen, 2 = Maximized
 var mobile_controls_mode: int = MobileControlsMode.AUTO
+var mobile_layout: Dictionary = {
+	"joystick": {"pos_x": 0.0, "pos_y": 0.0, "scale": 1.0, "opacity": 0.85},
+	"interact": {"pos_x": 0.0, "pos_y": 0.0, "scale": 1.0, "opacity": 0.95},
+	"jump": {"pos_x": 0.0, "pos_y": 0.0, "scale": 1.0, "opacity": 0.95},
+	"sprint": {"pos_x": 0.0, "pos_y": 0.0, "scale": 1.0, "opacity": 0.95},
+	"drop": {"pos_x": 0.0, "pos_y": 0.0, "scale": 1.0, "opacity": 0.95}
+}
 
 # Overlay Brightness Global
 var _brightness_layer: CanvasLayer = null
@@ -259,6 +301,35 @@ func is_mobile_controls_active() -> bool:
 			return OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
 
 # ----------------------------------------------------
+# Mobile Controls Layout Customization
+# ----------------------------------------------------
+func get_mobile_layout() -> Dictionary:
+	return mobile_layout
+
+func get_mobile_control_property(element: String, prop: String, default_val: float = 0.0) -> float:
+	if mobile_layout.has(element) and mobile_layout[element].has(prop):
+		return float(mobile_layout[element][prop])
+	if DEFAULT_MOBILE_LAYOUT.has(element) and DEFAULT_MOBILE_LAYOUT[element].has(prop):
+		return float(DEFAULT_MOBILE_LAYOUT[element][prop])
+	return default_val
+
+func set_mobile_control_property(element: String, prop: String, val: float, emit_signal: bool = true) -> void:
+	if not mobile_layout.has(element):
+		mobile_layout[element] = {}
+	mobile_layout[element][prop] = val
+	if emit_signal:
+		mobile_layout_updated.emit()
+
+func reset_mobile_control_element(element: String) -> void:
+	if DEFAULT_MOBILE_LAYOUT.has(element):
+		mobile_layout[element] = DEFAULT_MOBILE_LAYOUT[element].duplicate(true)
+		mobile_layout_updated.emit()
+
+func reset_mobile_layout() -> void:
+	mobile_layout = DEFAULT_MOBILE_LAYOUT.duplicate(true)
+	mobile_layout_updated.emit()
+
+# ----------------------------------------------------
 # Persistence (user://settings.cfg)
 # ----------------------------------------------------
 func save_settings() -> void:
@@ -270,6 +341,11 @@ func save_settings() -> void:
 	config.set_value("audio", "volume_bgm", volume_bgm)
 	config.set_value("audio", "volume_sfx", volume_sfx)
 	config.set_value("controls", "mobile_controls_mode", mobile_controls_mode)
+	
+	# Simpan tata letak kustomisasi kontrol mobile
+	for elem in mobile_layout.keys():
+		for prop in mobile_layout[elem].keys():
+			config.set_value("mobile_layout", "%s_%s" % [elem, prop], mobile_layout[elem][prop])
 	
 	var err = config.save(CONFIG_PATH)
 	if err == OK:
@@ -290,6 +366,15 @@ func load_settings(apply_display: bool = true) -> void:
 		volume_bgm = config.get_value("audio", "volume_bgm", 0.8)
 		volume_sfx = config.get_value("audio", "volume_sfx", 0.8)
 		mobile_controls_mode = config.get_value("controls", "mobile_controls_mode", MobileControlsMode.AUTO)
+		
+		# Muat tata letak kontrol mobile
+		mobile_layout = DEFAULT_MOBILE_LAYOUT.duplicate(true)
+		if config.has_section("mobile_layout"):
+			for elem in DEFAULT_MOBILE_LAYOUT.keys():
+				for prop in DEFAULT_MOBILE_LAYOUT[elem].keys():
+					var key = "%s_%s" % [elem, prop]
+					var def_v = DEFAULT_MOBILE_LAYOUT[elem][prop]
+					mobile_layout[elem][prop] = float(config.get_value("mobile_layout", key, def_v))
 	else:
 		brightness = 1.0
 		resolution_index = 0
@@ -298,6 +383,7 @@ func load_settings(apply_display: bool = true) -> void:
 		volume_bgm = 0.8
 		volume_sfx = 0.8
 		mobile_controls_mode = MobileControlsMode.AUTO
+		mobile_layout = DEFAULT_MOBILE_LAYOUT.duplicate(true)
 	
 	_apply_brightness()
 	_apply_bus_volume(_bus_master, volume_general)
@@ -307,6 +393,7 @@ func load_settings(apply_display: bool = true) -> void:
 		_apply_window_mode()
 		_apply_resolution()
 	mobile_controls_toggled.emit(is_mobile_controls_active())
+	mobile_layout_updated.emit()
 
 func reset_to_defaults() -> void:
 	brightness = 1.0
@@ -316,6 +403,7 @@ func reset_to_defaults() -> void:
 	volume_bgm = 0.8
 	volume_sfx = 0.8
 	mobile_controls_mode = MobileControlsMode.AUTO
+	reset_mobile_layout()
 	
 	_apply_brightness()
 	_apply_bus_volume(_bus_master, volume_general)

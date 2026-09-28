@@ -43,17 +43,48 @@ var _player: Node3D = null
 var _camera_rig: Node3D = null
 var _pulse_time: float = 0.0
 
+# State Tata Letak Kustom
+var _base_custom_pos: Vector2 = Vector2.ZERO
+var _button_initial_rects: Dictionary = {}
+var _custom_scales: Dictionary = {
+	"joystick": 1.0,
+	"jump": 1.0,
+	"sprint": 1.0,
+	"interact": 1.0,
+	"drop": 1.0
+}
+var _custom_opacities: Dictionary = {
+	"joystick": 0.85,
+	"jump": 0.95,
+	"sprint": 0.95,
+	"interact": 0.95,
+	"drop": 0.95
+}
+var _is_preview_mode: bool = false
+
 func _ready() -> void:
 	layer = 20 # Di bawah dialog box dan popup settings
+	
+	_base_default_pos = joystick_base.position
+	_base_custom_pos = _base_default_pos
+	_joystick_center = joystick_base.size / 2.0
+	joystick_knob.position = _joystick_center - (joystick_knob.size / 2.0)
+	
+	# Simpan posisi batas default masing-masing tombol
+	for btn in [btn_jump, btn_sprint, btn_interact, btn_drop]:
+		if btn:
+			_button_initial_rects[btn] = {
+				"left": btn.offset_left,
+				"top": btn.offset_top,
+				"right": btn.offset_right,
+				"bottom": btn.offset_bottom
+			}
 	
 	# Hubungkan sinyal dari SettingsManager
 	if SettingsManager:
 		SettingsManager.mobile_controls_toggled.connect(_on_mobile_controls_toggled)
+		SettingsManager.mobile_layout_updated.connect(apply_custom_layout)
 		visible = SettingsManager.is_mobile_controls_active()
-	
-	_base_default_pos = joystick_base.position
-	_joystick_center = joystick_base.size / 2.0
-	joystick_knob.position = _joystick_center - (joystick_knob.size / 2.0)
 	
 	# Setup Tombol Action
 	btn_jump.button_down.connect(_on_jump_down)
@@ -77,26 +108,30 @@ func _ready() -> void:
 	btn_drop.visible = false
 	
 	# Setup press animation feedback untuk setiap tombol
-	_setup_button_feedback(btn_jump)
-	_setup_button_feedback(btn_sprint)
-	_setup_button_feedback(btn_interact)
-	_setup_button_feedback(btn_drop)
+	_setup_button_feedback(btn_jump, "jump")
+	_setup_button_feedback(btn_sprint, "sprint")
+	_setup_button_feedback(btn_interact, "interact")
+	_setup_button_feedback(btn_drop, "drop")
+	
+	apply_custom_layout()
 	
 	get_viewport().size_changed.connect(_apply_responsive_layout)
 	_apply_responsive_layout()
 
-func _setup_button_feedback(btn: Button) -> void:
+func _setup_button_feedback(btn: Button, elem_name: String) -> void:
 	if btn == null:
 		return
 	btn.pivot_offset = btn.size / 2.0
 	btn.mouse_filter = Control.MOUSE_FILTER_PASS
 	btn.button_down.connect(func():
+		var s = _custom_scales.get(elem_name, 1.0)
 		var tween = create_tween()
-		tween.tween_property(btn, "scale", Vector2(0.9, 0.9), 0.08).set_ease(Tween.EASE_OUT)
+		tween.tween_property(btn, "scale", Vector2(0.9, 0.9) * s, 0.08).set_ease(Tween.EASE_OUT)
 	)
 	btn.button_up.connect(func():
+		var s = _custom_scales.get(elem_name, 1.0)
 		var tween = create_tween()
-		tween.tween_property(btn, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.tween_property(btn, "scale", Vector2.ONE * s, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	)
 
 func _apply_responsive_layout() -> void:
@@ -117,10 +152,117 @@ func _apply_responsive_layout() -> void:
 			action_buttons_container.offset_right = -right_margin
 			action_buttons_container.offset_bottom = -bottom_margin
 
+# ----------------------------------------------------
+# Kustomisasi Layout & Preview Mode
+# ----------------------------------------------------
+func apply_custom_layout() -> void:
+	if SettingsManager == null:
+		return
+	
+	# 1. Joystick Layout
+	var joy_data = SettingsManager.mobile_layout.get("joystick", {})
+	var joy_pos_x = float(joy_data.get("pos_x", 0.0))
+	var joy_pos_y = float(joy_data.get("pos_y", 0.0))
+	var joy_scale = float(joy_data.get("scale", 1.0))
+	var joy_opacity = float(joy_data.get("opacity", 0.85))
+	
+	_custom_scales["joystick"] = joy_scale
+	_custom_opacities["joystick"] = joy_opacity
+	
+	_base_custom_pos = _base_default_pos + Vector2(joy_pos_x, joy_pos_y)
+	if _joystick_touch_id == -1 and not _is_mouse_joystick:
+		joystick_base.position = _base_custom_pos
+	
+	joystick_base.scale = Vector2(joy_scale, joy_scale)
+	joystick_base.modulate.a = joy_opacity
+	
+	# 2. Tombol Aksi Layout
+	var btn_map = {
+		"jump": btn_jump,
+		"sprint": btn_sprint,
+		"interact": btn_interact,
+		"drop": btn_drop
+	}
+	
+	for elem_name in btn_map.keys():
+		var btn: Button = btn_map[elem_name]
+		if btn == null or not _button_initial_rects.has(btn):
+			continue
+		
+		var data = SettingsManager.mobile_layout.get(elem_name, {})
+		var px = float(data.get("pos_x", 0.0))
+		var py = float(data.get("pos_y", 0.0))
+		var s = float(data.get("scale", 1.0))
+		var op = float(data.get("opacity", 0.95))
+		
+		_custom_scales[elem_name] = s
+		_custom_opacities[elem_name] = op
+		
+		var init_rect = _button_initial_rects[btn]
+		btn.offset_left = init_rect["left"] + px
+		btn.offset_right = init_rect["right"] + px
+		btn.offset_top = init_rect["top"] + py
+		btn.offset_bottom = init_rect["bottom"] + py
+		
+		if elem_name != "interact" or _player == null:
+			btn.scale = Vector2(s, s)
+		
+		btn.modulate.a = op
+
+func set_preview_mode(active: bool) -> void:
+	_is_preview_mode = active
+	if active:
+		visible = true
+		if btn_drop:
+			btn_drop.visible = true
+		if joystick_area:
+			joystick_area.modulate.a = 1.0
+		if action_buttons_container:
+			action_buttons_container.modulate.a = 1.0
+		_set_buttons_mouse_filter(Control.MOUSE_FILTER_IGNORE)
+		apply_custom_layout()
+	else:
+		_set_buttons_mouse_filter(Control.MOUSE_FILTER_PASS)
+		if btn_drop:
+			btn_drop.visible = false
+		if SettingsManager:
+			visible = SettingsManager.is_mobile_controls_active()
+
+func _set_buttons_mouse_filter(filter_mode: Control.MouseFilter) -> void:
+	for btn in [btn_jump, btn_sprint, btn_interact, btn_drop]:
+		if btn:
+			btn.mouse_filter = filter_mode
+
+func pulse_element(elem_name: String) -> void:
+	var target_node: Control = null
+	var base_scale: float = 1.0
+	match elem_name:
+		"joystick":
+			target_node = joystick_base
+			base_scale = _custom_scales.get("joystick", 1.0)
+		"jump":
+			target_node = btn_jump
+			base_scale = _custom_scales.get("jump", 1.0)
+		"sprint":
+			target_node = btn_sprint
+			base_scale = _custom_scales.get("sprint", 1.0)
+		"interact":
+			target_node = btn_interact
+			base_scale = _custom_scales.get("interact", 1.0)
+		"drop":
+			target_node = btn_drop
+			base_scale = _custom_scales.get("drop", 1.0)
+	
+	if target_node:
+		var tw = create_tween()
+		tw.tween_property(target_node, "scale", Vector2.ONE * (base_scale * 1.25), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(target_node, "scale", Vector2.ONE * base_scale, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+
 var _ui_check_timer: float = 0.0
 
 func _on_mobile_controls_toggled(active: bool) -> void:
-	visible = active
+	if not _is_preview_mode:
+		visible = active
 
 func _process(delta: float) -> void:
 	if not visible:
@@ -148,12 +290,23 @@ func _find_player_and_camera() -> void:
 			_camera_rig = get_tree().current_scene.get_node_or_null("CameraRig")
 
 func _update_ui_state(delta: float) -> void:
+	if _is_preview_mode:
+		if joystick_area:
+			joystick_area.modulate.a = 1.0
+		if action_buttons_container:
+			action_buttons_container.modulate.a = 1.0
+		return
+
 	var ui_blocking = _is_ui_blocking()
 	var target_alpha: float = 0.25 if ui_blocking else 1.0
 	if joystick_area:
 		joystick_area.modulate.a = lerpf(joystick_area.modulate.a, target_alpha, 10.0 * delta)
 	if action_buttons_container:
 		action_buttons_container.modulate.a = lerpf(action_buttons_container.modulate.a, target_alpha, 10.0 * delta)
+	
+	var op_interact: float = _custom_opacities.get("interact", 0.95)
+	var scale_interact: float = _custom_scales.get("interact", 1.0)
+	var scale_drop: float = _custom_scales.get("drop", 1.0)
 	
 	if _player != null:
 		var root = get_tree().current_scene
@@ -163,10 +316,11 @@ func _update_ui_state(delta: float) -> void:
 		if "held_item" in _player and _player.held_item != null:
 			if not btn_drop.visible:
 				btn_drop.visible = true
-				btn_drop.scale = Vector2(0.5, 0.5)
+				btn_drop.scale = Vector2(0.5, 0.5) * scale_drop
 				var tween = create_tween()
-				tween.tween_property(btn_drop, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-			btn_interact.modulate = Color(0.4, 1.0, 0.7, 1.0)
+				tween.tween_property(btn_drop, "scale", Vector2.ONE * scale_drop, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			btn_interact.scale = Vector2(scale_interact, scale_interact)
+			btn_interact.modulate = Color(0.4, 1.0, 0.7, op_interact)
 			if lbl_interact:
 				lbl_interact.text = "Aksi"
 			if lbl_drop:
@@ -186,13 +340,13 @@ func _update_ui_state(delta: float) -> void:
 				if unpack_mgr.has_method("has_held_item") and unpack_mgr.has_held_item():
 					if not btn_drop.visible:
 						btn_drop.visible = true
-						btn_drop.scale = Vector2(0.5, 0.5)
+						btn_drop.scale = Vector2(0.5, 0.5) * scale_drop
 						var tween = create_tween()
-						tween.tween_property(btn_drop, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+						tween.tween_property(btn_drop, "scale", Vector2.ONE * scale_drop, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 					_pulse_time += delta * 4.0
-					var p_scale = 1.0 + sin(_pulse_time) * 0.05
+					var p_scale = (1.0 + sin(_pulse_time) * 0.05) * scale_interact
 					btn_interact.scale = Vector2(p_scale, p_scale)
-					btn_interact.modulate = Color(1.0, 0.85, 0.3, 1.0)
+					btn_interact.modulate = Color(1.0, 0.85, 0.3, op_interact)
 					if lbl_interact:
 						lbl_interact.text = "Aksi"
 					if lbl_drop:
@@ -201,9 +355,9 @@ func _update_ui_state(delta: float) -> void:
 				elif unpack_mgr.has_method("get_nearest_item_distance") and unpack_mgr.get_nearest_item_distance() <= unpack_mgr.interact_distance:
 					btn_drop.visible = false
 					_pulse_time += delta * 4.0
-					var p_scale = 1.0 + sin(_pulse_time) * 0.05
+					var p_scale = (1.0 + sin(_pulse_time) * 0.05) * scale_interact
 					btn_interact.scale = Vector2(p_scale, p_scale)
-					btn_interact.modulate = Color(0.4, 1.0, 0.7, 1.0)
+					btn_interact.modulate = Color(0.4, 1.0, 0.7, op_interact)
 					if lbl_interact:
 						lbl_interact.text = "Ambil"
 					return
@@ -217,9 +371,9 @@ func _update_ui_state(delta: float) -> void:
 			if near_lever:
 				btn_drop.visible = false
 				_pulse_time += delta * 4.0
-				var p_scale = 1.0 + sin(_pulse_time) * 0.05
+				var p_scale = (1.0 + sin(_pulse_time) * 0.05) * scale_interact
 				btn_interact.scale = Vector2(p_scale, p_scale)
-				btn_interact.modulate = Color(1.0, 0.6, 0.2, 1.0)
+				btn_interact.modulate = Color(1.0, 0.6, 0.2, op_interact)
 				if lbl_interact:
 					lbl_interact.text = "Aksi"
 				return
@@ -233,9 +387,9 @@ func _update_ui_state(delta: float) -> void:
 			if near_room_door:
 				btn_drop.visible = false
 				_pulse_time += delta * 4.0
-				var p_scale = 1.0 + sin(_pulse_time) * 0.05
+				var p_scale = (1.0 + sin(_pulse_time) * 0.05) * scale_interact
 				btn_interact.scale = Vector2(p_scale, p_scale)
-				btn_interact.modulate = Color(0.4, 0.9, 1.0, 1.0)
+				btn_interact.modulate = Color(0.4, 0.9, 1.0, op_interact)
 				if lbl_interact:
 					lbl_interact.text = "Aksi"
 				return
@@ -244,18 +398,20 @@ func _update_ui_state(delta: float) -> void:
 		btn_drop.visible = false
 		if "current_interactable" in _player and _player.current_interactable != null:
 			_pulse_time += delta * 4.0
-			var pulse_scale = 1.0 + sin(_pulse_time) * 0.05
+			var pulse_scale = (1.0 + sin(_pulse_time) * 0.05) * scale_interact
 			btn_interact.scale = Vector2(pulse_scale, pulse_scale)
-			btn_interact.modulate = Color(0.4, 1.0, 0.7, 1.0)
+			btn_interact.modulate = Color(0.4, 1.0, 0.7, op_interact)
 			if lbl_interact:
 				lbl_interact.text = "Aksi"
 		else:
-			btn_interact.scale = Vector2.ONE
-			btn_interact.modulate = Color(1.0, 1.0, 1.0, 0.92)
+			btn_interact.scale = Vector2(scale_interact, scale_interact)
+			btn_interact.modulate = Color(1.0, 1.0, 1.0, 0.92 * op_interact)
 			if lbl_interact:
 				lbl_interact.text = "Aksi"
 
 func _is_ui_blocking() -> bool:
+	if _is_preview_mode:
+		return false
 	if StoryManager != null:
 		if StoryManager.dialogue_box != null and StoryManager.dialogue_box.has_method("is_active") and StoryManager.dialogue_box.is_active():
 			return true
@@ -277,7 +433,7 @@ func _is_ui_blocking() -> bool:
 # Multi-touch & Mouse Input Handler
 # ----------------------------------------------------
 func _input(event: InputEvent) -> void:
-	if not visible:
+	if not visible or _is_preview_mode:
 		return
 	
 	# Jika UI dialog atau puzzle sedang aktif, lepaskan input kontrol agar touch digunakan oleh UI
@@ -403,7 +559,7 @@ func _release_joystick() -> void:
 	
 	# Animasi halus kembalikan base dan knob ke posisi asal
 	var tween = create_tween().set_parallel(true)
-	tween.tween_property(joystick_base, "position", _base_default_pos, 0.25)\
+	tween.tween_property(joystick_base, "position", _base_custom_pos, 0.25)\
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.tween_property(joystick_knob, "position", _joystick_center - (joystick_knob.size / 2.0), 0.18)\
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -423,15 +579,16 @@ func _on_jump_up() -> void:
 
 func _on_sprint_pressed() -> void:
 	is_sprint_toggled = not is_sprint_toggled
+	var op = _custom_opacities.get("sprint", 0.95)
 	if is_sprint_toggled:
 		btn_sprint.icon = ICON_SPRINT
-		btn_sprint.modulate = Color(1.0, 0.9, 0.3, 1.0)
+		btn_sprint.modulate = Color(1.0, 0.9, 0.3, op)
 		if lbl_sprint:
 			lbl_sprint.text = "Lari"
 		Input.action_press("sprint")
 	else:
 		btn_sprint.icon = ICON_WALK
-		btn_sprint.modulate = Color(1.0, 1.0, 1.0, 0.9)
+		btn_sprint.modulate = Color(1.0, 1.0, 1.0, 0.9 * op)
 		if lbl_sprint:
 			lbl_sprint.text = "Jalan"
 		Input.action_release("sprint")

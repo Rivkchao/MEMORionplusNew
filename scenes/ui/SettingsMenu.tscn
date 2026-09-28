@@ -87,7 +87,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.04, 0.04, 0.08, 0.8)
+color = Color(0.04, 0.04, 0.08, 0.55)
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
 layout_mode = 1
@@ -99,7 +99,7 @@ grow_vertical = 2
 
 [node name="PanelContainer" type="PanelContainer" parent="CenterContainer"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(680, 560)
+custom_minimum_size = Vector2(740, 600)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
@@ -363,6 +363,178 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_fonts/font = ExtResource("4_telegraf_reg")
 theme_override_font_sizes/font_size = 17
+
+[node name="HSeparatorLayout" type="HSeparator" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection"]
+layout_mode = 2
+theme_override_styles/separator = SubResource("StyleBoxLine_separator")
+
+[node name="LayoutSubTitle" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.75, 0.2, 1)
+theme_override_fonts/font = ExtResource("3_telegraf_bold")
+theme_override_font_sizes/font_size = 18
+text = "✦ TATA LETAK & UKURAN TOMBOL (LIVE EDITING)"
+
+[node name="LayoutDesc" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.9, 0.85)
+theme_override_fonts/font = ExtResource("4_telegraf_reg")
+theme_override_font_sizes/font_size = 14
+text = "Pilih tombol di bawah untuk mengubah posisi X & Y, ukuran, dan transparansi secara langsung."
+
+[node name="ElementSelectRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/ElementSelectRow"]
+custom_minimum_size = Vector2(210, 0)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_telegraf_reg")
+theme_override_font_sizes/font_size = 18
+text = "Pilih Tombol / Kontrol:"
+
+[node name="MobileElementOption" type="OptionButton" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/ElementSelectRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_fonts/font = ExtResource("4_telegraf_reg")
+theme_override_font_sizes/font_size = 17
+
+[node name="MobilePosXRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobilePosXRow"]
+custom_minimum_size = Vector2(210, 0)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_telegraf_reg")
+theme_override_font_sizes/font_size = 18
+text = "Posisi Geser X:"
+
+[node name="MobilePosXSlider" type="HSlider" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobilePosXRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = -350.0
+max_value = 350.0
+step = 1.0
+
+[node name="MobilePosXValue" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobilePosXRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(65, 0)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_telegraf_bold")
+theme_override_font_sizes/font_size = 18
+text = "0 px"
+horizontal_alignment = 2
+
+[node name="MobilePosYRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobilePosYRow"]
+custom_minimum_size = Vector2(210, 0)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_telegraf_reg")
+theme_override_font_sizes/font_size = 18
+text = "Posisi Geser Y:"
+
+[node name="MobilePosYSlider" type="HSlider" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobilePosYRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = -350.0
+max_value = 350.0
+step = 1.0
+
+[node name="MobilePosYValue" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobilePosYRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(65, 0)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_telegraf_bold")
+theme_override_font_sizes/font_size = 18
+text = "0 px"
+horizontal_alignment = 2
+
+[node name="MobileSizeRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobileSizeRow"]
+custom_minimum_size = Vector2(210, 0)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_telegraf_reg")
+theme_override_font_sizes/font_size = 18
+text = "Ukuran (Size / Skala):"
+
+[node name="MobileSizeSlider" type="HSlider" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobileSizeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 0.5
+max_value = 1.8
+step = 0.05
+value = 1.0
+
+[node name="MobileSizeValue" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobileSizeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(65, 0)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_telegraf_bold")
+theme_override_font_sizes/font_size = 18
+text = "100%"
+horizontal_alignment = 2
+
+[node name="MobileOpacityRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobileOpacityRow"]
+custom_minimum_size = Vector2(210, 0)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_telegraf_reg")
+theme_override_font_sizes/font_size = 18
+text = "Transparansi (Opacity):"
+
+[node name="MobileOpacitySlider" type="HSlider" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobileOpacityRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 0.1
+max_value = 1.0
+step = 0.05
+value = 0.95
+
+[node name="MobileOpacityValue" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobileOpacityRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(65, 0)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_telegraf_bold")
+theme_override_font_sizes/font_size = 18
+text = "95%"
+horizontal_alignment = 2
+
+[node name="MobileLayoutActionsRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ResetElementBtn" type="Button" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobileLayoutActionsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(170, 40)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_telegraf_reg")
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
+text = "↺ Reset Elemen Ini"
+
+[node name="ResetAllLayoutBtn" type="Button" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/ControlsSection/MobileLayoutActionsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(210, 40)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_telegraf_reg")
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
+text = "↺ Reset Semua Tata Letak"
 
 [node name="HSeparatorFooter" type="HSeparator" parent="CenterContainer/PanelContainer/VBoxContainer"]
 layout_mode = 2
