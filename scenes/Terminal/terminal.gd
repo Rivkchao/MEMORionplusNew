@@ -12,6 +12,7 @@ extends Interactable
 
 var _flicker_timer: float = 0.0
 var _puzzle_solved: bool = false
+var _is_interacting: bool = false
 
 func _ready() -> void:
 	super._ready()
@@ -25,6 +26,9 @@ func _ready() -> void:
 		omni_light_2.light_color = solved_color
 		omni_light_2.light_energy = solved_energy
 		interact_label = ""
+		var col = find_child("CollisionShape3D", true, false) as CollisionShape3D
+		if col:
+			col.set_deferred("disabled", true)
 	else:
 		_update_power_lights()
 
@@ -58,7 +62,7 @@ func _process(delta: float) -> void:
 		_flicker_timer = flicker_speed
 
 func interact() -> void:
-	if _puzzle_solved:
+	if _puzzle_solved or GameManager.terminal_puzzle_done or _is_interacting:
 		return
 	if not GameManager.unpacking_completed:
 		if StoryManager and StoryManager.has_method("start_dialogue"):
@@ -66,9 +70,14 @@ func interact() -> void:
 				"Rallux: \"Rion, bereskan dulu barang-barang bengkel sebelum menyalakan terminal ya!\""
 			], "Rallux")
 		return
+	_is_interacting = true
 	_play_terminal_emergency()
 
 func _play_terminal_emergency() -> void:
+	if _puzzle_solved or GameManager.terminal_puzzle_done:
+		_is_interacting = false
+		return
+
 	# Efek kedip merah tipis menandakan kegawatan sumber listrik
 	var layer := CanvasLayer.new()
 	layer.layer = 110
@@ -96,16 +105,27 @@ func _play_terminal_emergency() -> void:
 		flash.kill()
 	if is_instance_valid(layer):
 		layer.queue_free()
+
+	if _puzzle_solved or GameManager.terminal_puzzle_done:
+		_is_interacting = false
+		return
+
 	StoryManager.start_wire_puzzle()
+	_is_interacting = false
 
 func _on_wire_puzzle_completed(is_correct: bool) -> void:
 	if is_correct and not _puzzle_solved:
 		_puzzle_solved = true
+		_is_interacting = false
+		GameManager.terminal_puzzle_done = true
 		omni_light_1.light_color = solved_color
 		omni_light_1.light_energy = solved_energy
 		omni_light_2.light_color = solved_color
 		omni_light_2.light_energy = solved_energy
 		interact_label = ""
+		var col = find_child("CollisionShape3D", true, false) as CollisionShape3D
+		if col:
+			col.set_deferred("disabled", true)
 
 		# Dialog apresiasi Rallux setelah kabel terminal berhasil dibetulkan
 		if StoryManager and StoryManager.has_method("start_dialogue"):

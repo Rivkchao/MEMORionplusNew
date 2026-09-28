@@ -276,7 +276,7 @@ func complete_lever() -> void:
 		if ona and ona.has_method("play_animation"):
 			ona.play_animation("idle")
 
-		# Posisikan Rallux berdiri bersama Rion di depan dok Ona
+		# Posisikan Rion dan Rallux saling berhadapan dengan Ona
 		if ona and player_node:
 			var dir_to_ona: Vector3 = ona.global_position - player_node.global_position
 			dir_to_ona.y = 0.0
@@ -286,8 +286,6 @@ func complete_lever() -> void:
 
 			if rallux:
 				rallux.visible = true
-				rallux.global_position = player_node.global_position + Vector3(-1.8, 0.0, 0.5)
-				rallux.scale = Vector3(8.0, 8.0, 8.0)
 				var dir_r_ona: Vector3 = ona.global_position - rallux.global_position
 				dir_r_ona.y = 0.0
 				if dir_r_ona.length_squared() > 0.01:
@@ -295,16 +293,35 @@ func complete_lever() -> void:
 				if rallux.has_method("play_animation"):
 					rallux.play_animation("idle")
 
-		# Transisi kamera menyorot hangat ke arah Ona di dok dan Rion/Rallux
-		if camera_rig and ona and player_node:
+			var dir_o_player: Vector3 = player_node.global_position - ona.global_position
+			dir_o_player.y = 0.0
+			if dir_o_player.length_squared() > 0.01:
+				ona.rotation.y = atan2(-dir_o_player.x, -dir_o_player.z)
+
+		# Kamera saat Ona selesai charge shoot dari node previewona ke arah lever
+		var preview_node: Node3D = null
+		var ona_room = scene.find_child("OnaProgramRoom", true, false) if scene else null
+		if ona_room:
+			preview_node = ona_room.find_child("OnaPreview", true, false) as Node3D
+			if not preview_node:
+				preview_node = ona_room.find_child("PlatOnaPreview", true, false) as Node3D
+		if not preview_node and scene:
+			preview_node = scene.find_child("OnaPreview", true, false) as Node3D
+			if not preview_node:
+				preview_node = scene.find_child("PlatOnaPreview", true, false) as Node3D
+
+		var preview_pos: Vector3 = preview_node.global_position if preview_node else Vector3(-44.817, 0.0, 23.912)
+		var lever_target_pos: Vector3 = lever_handle.global_position if lever_handle else global_position
+
+		var cam_target: Vector3 = preview_pos + Vector3(2.2, 7.6, 1.0)
+		if camera_rig:
 			camera_rig.set_physics_process(false)
 			camera_rig.set_process(false)
-			var mid_point: Vector3 = (ona.global_position + player_node.global_position) * 0.5
-			var cam_target: Vector3 = mid_point + Vector3(-3.8, 1.8, 1.5)
+			camera_rig.set_process_unhandled_input(false)
 			var cam_tw = create_tween()
-			cam_tw.tween_property(camera_rig, "global_position", cam_target, 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			cam_tw.tween_property(camera_rig, "global_position", cam_target, 1.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 			await cam_tw.finished
-			camera_rig.look_at(mid_point + Vector3(0.0, 1.1, 0.0), Vector3.UP)
+			camera_rig.look_at(Vector3(lever_target_pos.x, 1.8, lever_target_pos.z), Vector3.UP)
 
 		if StoryManager and StoryManager.has_method("start_dialogue"):
 			StoryManager.start_dialogue([

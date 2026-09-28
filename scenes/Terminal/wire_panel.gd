@@ -67,6 +67,14 @@ func _process(_delta: float) -> void:
 		queue_redraw()
 
 func setup() -> void:
+	if GameManager.terminal_puzzle_done:
+		is_complete = true
+		is_preview_phase = false
+		visible = false
+		if get_parent():
+			get_parent().hide()
+		return
+
 	connections.clear()
 	correct_status.clear()
 	dragging_from = -1
@@ -104,14 +112,14 @@ func setup() -> void:
 
 func _start_preview_sequence() -> void:
 	await get_tree().create_timer(5.0).timeout
-	if not is_inside_tree() or is_complete:
+	if not is_inside_tree() or is_complete or GameManager.terminal_puzzle_done:
 		return
 
 	var tween = create_tween()
 	tween.tween_property(self, "bnw_blend", 1.0, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	await tween.finished
 	
-	if not is_inside_tree():
+	if not is_inside_tree() or GameManager.terminal_puzzle_done:
 		return
 
 	is_preview_phase = false
@@ -332,6 +340,7 @@ func _check_complete() -> void:
 	
 	is_complete = true
 	if all_correct:
+		GameManager.terminal_puzzle_done = true
 		if AudioManager:
 			AudioManager.play_puzzle_solved()
 	else:

@@ -78,21 +78,12 @@ func _build_ui() -> void:
 
 	var btn_menu := Button.new()
 	btn_menu.text = "Kembali ke Menu Utama"
-	btn_menu.custom_minimum_size = Vector2(240, 50)
+	btn_menu.custom_minimum_size = Vector2(260, 52)
 	btn_menu.add_theme_font_size_override("font_size", 20)
 	btn_menu.pressed.connect(func():
 		_go_to_next_scene()
 	)
 	_btn_container.add_child(btn_menu)
-
-	var btn_explore := Button.new()
-	btn_explore.text = "Jelajahi Bengkel Lagi"
-	btn_explore.custom_minimum_size = Vector2(220, 50)
-	btn_explore.add_theme_font_size_override("font_size", 20)
-	btn_explore.pressed.connect(func():
-		dismiss()
-	)
-	_btn_container.add_child(btn_explore)
 
 ## Jalankan animasi penutup: fade ke hitam, lalu teks muncul.
 func play() -> void:
