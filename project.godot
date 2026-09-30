@@ -13,7 +13,6 @@ config_version=5
 config/name="Memorion+"
 run/main_scene="uid://0m4an2nc7ymj"
 config/features=PackedStringArray("4.7", "GL Compatibility")
-config/icon="res://icon.svg"
 
 [audio]
 

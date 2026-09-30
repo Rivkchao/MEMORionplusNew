@@ -204,7 +204,7 @@ label_settings = SubResource("LabelSettings_jrdmd")
 vertical_alignment = 1
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Panel" unique_id=1367368880]
-position = Vector2(1208, 980)
+position = Vector2(1208, 965)
 scale = Vector2(0.4, 0.4)
 sprite_frames = SubResource("SpriteFrames_c6lqs")
 frame_progress = 0.1933882

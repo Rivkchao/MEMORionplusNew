@@ -38,6 +38,10 @@ func _ready() -> void:
 	if AudioManager:
 		AudioManager.play_bgm(MENU_BGM, 1.5, -4.0)
 
+	# Sesi login tersimpan (cookies) supaya Continue/Load bisa langsung muat.
+	SaveManager.load_session()
+	_update_greeting()
+
 	if Engine.is_editor_hint():
 		return
 	
@@ -158,20 +162,48 @@ func _start_logo_flip_animation() -> void:
 func _on_mulai_game() -> void:
 	if AudioManager:
 		AudioManager.play_ui_confirm()
+	SaveManager.pending_load_slot = ""
 	SaveManager.initial_auth_tab = 1 # Tab Daftar untuk game baru
 	_open_auth()
 
 func _on_muat_game() -> void:
 	if AudioManager:
 		AudioManager.play_ui_confirm()
+	# Load Game = memuat manual save (buatan "Simpan" di Pengaturan).
+	if await _try_load_slot(SaveManager.SLOT_MANUAL):
+		return
+	SaveManager.pending_load_slot = SaveManager.SLOT_MANUAL
 	SaveManager.initial_auth_tab = 0 # Tab Masuk untuk load game
 	_open_auth()
 
 func _on_lanjut_game() -> void:
 	if AudioManager:
 		AudioManager.play_ui_confirm()
+	# Continue = memuat auto-save (titik terakhir game ditutup).
+	if await _try_load_slot(SaveManager.SLOT_AUTO):
+		return
+	SaveManager.pending_load_slot = SaveManager.SLOT_AUTO
 	SaveManager.initial_auth_tab = 0 # Tab Masuk untuk lanjut game
 	_open_auth()
+
+## Coba langsung muat slot memakai sesi login tersimpan.
+## return true kalau berhasil memuat (pemanggil tidak perlu buka auth).
+func _try_load_slot(slot: String) -> bool:
+	if not SaveManager.is_logged_in():
+		return false
+	if not await SaveManager.load_slot(slot):
+		return false
+	SaveManager.pending_load_slot = ""
+	LoadingScreen.load_scene(SaveManager.pending_scene)
+	return true
+
+func _update_greeting() -> void:
+	if greeting_label == null:
+		return
+	if SaveManager.is_logged_in():
+		greeting_label.text = "Halo, %s!" % SaveManager.current_username
+	else:
+		greeting_label.text = "Halo, Penjelajah Bintang!"
 
 ## Semua tombol mulai masuk lewat layar login/registrasi dulu (main menu -> auth -> LEV1).
 func _open_auth() -> void:
@@ -181,6 +213,8 @@ func _on_pengaturan() -> void:
 	SettingsManager.open_settings_dialog(self)
 
 func _on_keluar() -> void:
+	# Exit: auto-save progress kalau sudah login & sedang di dalam level.
+	await SaveManager.handle_exit_auto_save()
 	get_tree().quit()
 
 func _on_instagram() -> void:

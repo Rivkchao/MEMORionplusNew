@@ -26,14 +26,14 @@ const FRAGMENTS_DATA = {
 		"title": "Fragmen Fokus & Ketenangan",
 		"congrats": "✦ FRAGMEN BARU DITEMUKAN ✦",
 		"desc": "Mengelola Gugup: Saat menghadapi rintangan, tarik napas pelan dan kerjakan satu langkah demi satu langkah. Memusatkan perhatian pada pola yang ada membantumu melewati rasa tegang.",
-		"praise": "Kamu anak yang berani mencoba lagi walaupun sempat gugup — itu tanda keberanian!",
+		"praise": "Kamu anak yang berani mencoba lagi walaupun sempat gugup, itu tanda keberanian!",
 		"texture_path": "res://assets/StoneImage/Cristal.png",
 		"glow_color": Color(0.2, 0.8, 1.0)
 	},
 	"lever_crusher": {
 		"title": "Fragmen Mengolah Emosi",
 		"congrats": "✦ FRAGMEN BARU DITEMUKAN ✦",
-		"desc": "Mengelola Amarah: Marah adalah emosi yang wajar. Yang penting adalah cara mengolahnya — salurkan energinya ke hal yang membangun, bukan melukai diri sendiri atau orang lain.",
+		"desc": "Mengelola Amarah: Marah adalah emosi yang wajar. Yang penting adalah cara mengolahnya, salurkan energinya ke hal yang membangun, bukan melukai diri sendiri atau orang lain.",
 		"praise": "Kamu hebat karena mampu mengubah rasa kesal menjadi tindakan yang membangun.",
 		"texture_path": "res://assets/StoneImage/Iron.png",
 		"glow_color": Color(0.95, 0.45, 0.2, 1.0)

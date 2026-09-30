@@ -56,7 +56,6 @@ func _ready() -> void:
 	SaveManager.login_failed.connect(_on_login_failed)
 	SaveManager.register_success.connect(_on_register_success)
 	SaveManager.register_failed.connect(_on_register_failed)
-	SaveManager.load_success.connect(_on_load_success)
 	
 	# Animasi fade in & pop di PanelContainer
 	var card = $CenterContainer/PanelContainer
@@ -121,7 +120,18 @@ func _on_login_success() -> void:
 	login_feedback.text = "Berhasil masuk! Memuat data..."
 	login_feedback.modulate = Color.GREEN
 	await get_tree().create_timer(1.0).timeout
-	LoadingScreen.load_scene("res://LEV1.tscn")
+	# Muat slot yang diminta (Continue = auto, Load Game = manual) jika ada.
+	var slot: String = SaveManager.pending_load_slot
+	SaveManager.pending_load_slot = ""
+	var loaded: bool = false
+	if slot != "":
+		loaded = await SaveManager.load_slot(slot)
+	if loaded:
+		LoadingScreen.load_scene(SaveManager.pending_scene)
+	else:
+		# Mulai game baru selalu dari LEV0.
+		GameManager.reset_all_progress()
+		LoadingScreen.load_scene("res://LEV0.tscn")
 
 func _on_login_failed(reason: String) -> void:
 	_set_loading(false)
@@ -136,9 +146,11 @@ func _on_register_success() -> void:
 		AudioManager.play_ui_confirm()
 	reg_feedback.text = "Akun berhasil dibuat! Selamat datang!"
 	reg_feedback.modulate = Color.GREEN
-	# Langsung masuk game
+	# Akun baru = mulai game dari awal (bersihkan progres sesi sebelumnya).
+	SaveManager.pending_load_slot = ""
+	GameManager.reset_all_progress()
 	await get_tree().create_timer(1.0).timeout
-	LoadingScreen.load_scene("res://LEV1.tscn")
+	LoadingScreen.load_scene("res://LEV0.tscn")
 
 func _on_register_failed(reason: String) -> void:
 	_set_loading(false)
@@ -146,9 +158,6 @@ func _on_register_failed(reason: String) -> void:
 		AudioManager.play_puzzle_wrong()
 	reg_feedback.text = reason
 	reg_feedback.modulate = Color.RED
-
-func _on_load_success(save_data: Dictionary) -> void:
-	SaveManager.restore(save_data)
 
 func _set_loading(is_loading: bool) -> void:
 	login_btn.disabled = is_loading

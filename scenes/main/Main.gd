@@ -5,10 +5,24 @@ signal _text_input_submitted(text: String)
 
 const BGM_LEVEL1_EXPLORATION = preload("res://assets/audio/bgm/meditation_main.mp3")
 
+func _current_level_name() -> String:
+	if not scene_file_path.is_empty():
+		return scene_file_path.get_file().get_basename()
+	var current := get_tree().current_scene if get_tree() else null
+	if current:
+		if not current.scene_file_path.is_empty():
+			return current.scene_file_path.get_file().get_basename()
+		return String(current.name)
+	return ""
+
 func _ready() -> void:
 	if AudioManager:
 		AudioManager.play_bgm(BGM_LEVEL1_EXPLORATION, 2.0, -4.0)
-		AudioManager.play_ambience(AudioManager.AMBIENCE_WIND, 2.0, -8.0)
+		# Angin hanya untuk area outdoor (LEV1). Di LEV2 (interior) dimatikan.
+		if _current_level_name() == "LEV1":
+			AudioManager.play_ambience(AudioManager.AMBIENCE_WIND, 2.0, -8.0)
+		else:
+			AudioManager.stop_ambience(2.0)
 
 	# Cari node WirePuzzle & HUD secara dinamis
 	var wire_puzzle_node = find_child("WirePuzzle", true, false)
@@ -18,7 +32,14 @@ func _ready() -> void:
 	
 	# Inisialisasi ke StoryManager
 	StoryManager.init(dialogue_node, null, wire_puzzle_node)
-	
+
+	# Kalau scene ini dimuat dari save (Continue / Load Game), jangan ulang intro:
+	# langsung pasang state gameplay supaya pemain muncul di posisi terakhir.
+	if GameManager.skip_intro_on_load:
+		GameManager.skip_intro_on_load = false
+		_setup_gameplay_state()
+		return
+
 	# Jalankan intro roket HANYA jika scene ini memiliki roket & kamera roket DAN belum pernah ke bengkel
 	if has_node("RocketCamera") and has_node("RionCapsule/AnimationPlayer") and not GameManager.has_visited_workshop:
 		_play_rocket_intro()
@@ -62,6 +83,23 @@ func _setup_gameplay_state() -> void:
 		var rion_mesh = player.get_node_or_null("RionMesh")
 		if rion_mesh:
 			rion_mesh.rotation = Vector3.ZERO
+
+	# Pasang posisi Ona tersimpan (kalau ada). Di LEV1 Ona sudah mengonsumsi
+	# override ini sendiri di ona.gd; di LEV2/R1 baru dipakai di sini.
+	var ona_node := find_child("Ona", true, false) as Node3D
+	if ona_node:
+		var ona_pos := GameManager.consume_ona_override()
+		if ona_pos != Vector3.ZERO:
+			ona_node.global_position = ona_pos
+
+	var rallux_node := find_child("Rallux", true, false) as Node3D
+	if rallux_node:
+		var rallux_pos := GameManager.consume_rallux_override()
+		if rallux_pos != Vector3.ZERO:
+			rallux_node.visible = true
+			rallux_node.global_position = rallux_pos
+			if rallux_node.has_method("play_animation"):
+				rallux_node.play_animation("idle")
 
 	# Pastikan Kamera Player aktif & snap ke target
 	if camera_rig:
@@ -107,7 +145,7 @@ func _setup_gameplay_state() -> void:
 			var fire_node = find_child(fire_name, true, false)
 			if fire_node:
 				fire_node.visible = true
-		_ensure_capsule_sfx(capsule)
+		_setup_capsule_landed_sfx(capsule)
 
 	# Khusus R1: kapsul yang sudah dibersihkan tetap tampil setelah cutscene pagi.
 	if has_node("StoryPointing2") and has_node("RionCapsule") and GameManager.r1_morning_intro_done:
@@ -134,23 +172,51 @@ func _workshop_tasks_done() -> bool:
 		and GameManager.solved_levers.get("CrusherRoom_Lever", false) \
 		and GameManager.solved_levers.get("OnaProgramRoom_Lever", false)
 
-func _ensure_capsule_sfx(capsule: Node3D) -> void:
+# AudioStreamWAV hasil impor tidak menyimpan titik loop. Kalau loop_mode diubah
+# saat runtime tanpa loop_begin/loop_end, stream dianggap loop 0..0 dan langsung
+# selesai sehingga suaranya tidak terdengar. Set titik loop eksplisit.
+func _make_wav_loop(wav: AudioStream) -> void:
+	if wav is AudioStreamWAV:
+		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		wav.loop_begin = 0
+		var frames := int(round(wav.get_length() * float(wav.mix_rate)))
+		if frames > 0:
+			wav.loop_end = frames
+
+func _ensure_capsule_audio(capsule: Node3D, node_name: String, path: String) -> AudioStreamPlayer3D:
+	if capsule == null:
+		return null
+	var player := capsule.get_node_or_null(node_name) as AudioStreamPlayer3D
+	if player == null:
+		player = AudioStreamPlayer3D.new()
+		player.name = node_name
+		player.bus = &"SFX" if AudioServer.get_bus_index("SFX") != -1 else &"Master"
+		var stream := load(path) as AudioStream
+		if stream:
+			_make_wav_loop(stream)
+		player.stream = stream
+		player.volume_db = -2.0
+		player.max_distance = 40.0
+		player.unit_size = 8.0
+		capsule.add_child(player)
+	if not player.playing:
+		player.play()
+	return player
+
+func _setup_capsule_falling_sfx(capsule: Node3D) -> void:
+	# Di langit: suara jet.
+	_ensure_capsule_audio(capsule, "CapsuleJetAudio3D", "res://assets/audio/sfx/Jet.wav")
+
+func _setup_capsule_landed_sfx(capsule: Node3D) -> void:
 	if capsule == null:
 		return
-	var audio_3d := capsule.get_node_or_null("CapsuleSmokeAudio3D") as AudioStreamPlayer3D
-	if audio_3d == null:
-		audio_3d = AudioStreamPlayer3D.new()
-		audio_3d.name = "CapsuleSmokeAudio3D"
-		audio_3d.bus = &"SFX"
-		if AudioManager:
-			audio_3d.stream = AudioManager.SFX_ROCKET_FALL
-		audio_3d.pitch_scale = 0.5
-		audio_3d.volume_db = -2.0
-		audio_3d.max_distance = 35.0
-		audio_3d.unit_size = 8.0
-		capsule.add_child(audio_3d)
-	if not audio_3d.playing:
-		audio_3d.play()
+	# Sudah mendarat: suara jet hilang...
+	var jet := capsule.get_node_or_null("CapsuleJetAudio3D") as AudioStreamPlayer3D
+	if jet and jet.playing:
+		jet.stop()
+	# ...diganti suara asap dan api.
+	_ensure_capsule_audio(capsule, "CapsuleSmokeAudio3D", "res://assets/audio/sfx/Smoke.wav")
+	_ensure_capsule_audio(capsule, "CapsuleFireAudio3D", "res://assets/audio/sfx/Fire.wav")
 
 var _ona_follow: bool = false
 var _ona_last_anim: String = ""
@@ -479,10 +545,9 @@ func transition_to_onaprogram_lever() -> void:
 	await _fade_screen_out(0.5)
 
 	# 2. Posisi Player, Rallux, dan Ona sesuai instruksi:
-	# rallux x=-19.644 z=36.039, ona x=-30.848 z=27.768, rion x=-17.85 z=29.908
-	var target_rallux_pos := Vector3(-19.644, 1.16, 36.039)
-	var target_ona_pos := Vector3(-30.848, 1.16, 27.768)
-	var target_player_pos := Vector3(-17.85, 1.16, 29.908)
+	var target_rallux_pos := Vector3(-19.644, 0.14, 36.039)
+	var target_ona_pos := Vector3(-30.848, 0.14, 27.768)
+	var target_player_pos := Vector3(-16.848, 0.14, 30.351)
 
 	var preview_pos := Vector3(-30.891, 0.0, 31.639)
 	if ona_room:
@@ -737,10 +802,12 @@ func _play_rocket_intro() -> void:
 		rocket_cam.make_current()
 
 	# 3. Putar animasi roket Kehancuran
+	var capsule = find_child("RionCapsule", true, false)
 	if anim_player:
 		anim_player.play("Kehancuran")
+		# Di langit: suara jet.
+		_setup_capsule_falling_sfx(capsule)
 		if AudioManager:
-			AudioManager.play_capsule_fall(0.0)
 			# Putar crash impact saat kapsul membentur tanah di detik ke-3.6
 			get_tree().create_timer(3.6).timeout.connect(func():
 				if AudioManager:
@@ -749,7 +816,6 @@ func _play_rocket_intro() -> void:
 
 	# 4. Saat roket mendarat (5 detik), arahkan kamera ke Ona yang mulai berjalan
 	await get_tree().create_timer(5.0).timeout
-	var capsule = find_child("RionCapsule", true, false)
 	if capsule:
 		capsule.visible = true
 		capsule.global_position = Vector3(106.118, -0.096, 25.87)
@@ -757,7 +823,8 @@ func _play_rocket_intro() -> void:
 		var smoke = capsule.find_child("Smoke", true, false)
 		if smoke:
 			smoke.visible = true
-		_ensure_capsule_sfx(capsule)
+		# Sudah mendarat: jet hilang, ganti asap + api.
+		_setup_capsule_landed_sfx(capsule)
 	for fire_name in ["Fire1", "Fire2", "Fire3"]:
 		var fire_node = find_child(fire_name, true, false)
 		if fire_node:

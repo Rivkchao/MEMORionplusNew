@@ -1,23 +1,72 @@
-# AIManager.gd
-# Terhubung langsung ke OpenRouter API dengan kredensial hardcode.
 extends Node
 
 # Signal ke UI / Scene Game
 signal emotion_analyzed(detected_emotion: String, npc_reply: String)
 signal answer_checked(npc_reply: String, emotion: String)
 
-# Kredensial Hardcode
 const API_URL: String = "https://openrouter.ai/api/v1/chat/completions"
-const API_KEY: String = "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"
 const DEFAULT_MODEL: String = "openai/gpt-4o-mini"
 
-var _api_key: String = API_KEY
+var _api_key: String = ""
+var _server_model: String = ""
+var _credentials_loaded: bool = false
 
 func _ready() -> void:
-	print("[AIManager] Siap. Endpoint: %s | Model: %s" % [API_URL, DEFAULT_MODEL])
+	print("[AIManager] Siap. API key AI ready")
 
 func is_ai_available() -> bool:
-	return not API_KEY.strip_edges().is_empty()
+	return not _api_key.strip_edges().is_empty()
+
+func _ai_endpoint() -> String:
+	var base := "https://memorionplus.web.id/api"
+	if SaveManager and SaveManager.api_base_url != "":
+		base = SaveManager.api_base_url
+	return base.rstrip("/") + "/ai-key"
+
+## Ambil (dan cache) API key AI dari Laravel. Butuh login player.
+func ensure_credentials(force: bool = false) -> bool:
+	if _credentials_loaded and not force and is_ai_available():
+		return true
+
+	var token := ""
+	if SaveManager:
+		token = SaveManager.current_token
+	if token == "":
+		push_warning("Belum login, tidak bisa mengambil API key AI.")
+		return false
+
+	var http := HTTPRequest.new()
+	http.timeout = 15.0
+	add_child(http)
+	var headers := PackedStringArray([
+		"Accept: application/json",
+		"Authorization: Bearer " + token,
+	])
+	var err := http.request(_ai_endpoint(), headers, HTTPClient.METHOD_GET)
+	if err != OK:
+		http.queue_free()
+		return false
+
+	var res: Array = await http.request_completed
+	http.queue_free()
+
+	var code := int(res[1])
+	var raw := ""
+	if res.size() > 3 and typeof(res[3]) == TYPE_PACKED_BYTE_ARRAY:
+		raw = (res[3] as PackedByteArray).get_string_from_utf8()
+
+	if code != 200:
+		push_warning("[AIManager] Gagal ambil API key AI (%d): %s" % [code, raw])
+		return false
+
+	var parsed = JSON.parse_string(raw)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return false
+
+	_api_key = str(parsed.get("key", ""))
+	_server_model = str(parsed.get("model", ""))
+	_credentials_loaded = true
+	return is_ai_available()
 
 # ---------------------------------------------------------------
 # Core HTTP Request
@@ -25,8 +74,9 @@ func is_ai_available() -> bool:
 func chat(messages: Array, model: String = "", temperature: float = 0.4,
 		max_tokens: int = 0, want_json: bool = false) -> Dictionary:
 	if not is_ai_available():
-		push_error("[AIManager] API Key belum disetel!")
-		return {"ok": false, "code": 401, "content": "", "model": ""}
+		if not await ensure_credentials():
+			push_error("API key AI belum tersedia.")
+			return {"ok": false, "code": 401, "content": "", "model": ""}
 
 	var http := HTTPRequest.new()
 	http.timeout = 45.0
@@ -34,12 +84,13 @@ func chat(messages: Array, model: String = "", temperature: float = 0.4,
 
 	var headers := PackedStringArray([
 		"Content-Type: application/json",
-		"Authorization: Bearer " + API_KEY,
+		"Authorization: Bearer " + _api_key,
 		"HTTP-Referer: https://memorion.game",
 		"X-Title: Memorion+"
 	])
 
-	var selected_model := model if not model.is_empty() else DEFAULT_MODEL
+	var fallback_model := _server_model if not _server_model.is_empty() else DEFAULT_MODEL
+	var selected_model := model if not model.is_empty() else fallback_model
 	var body: Dictionary = {
 		"model": selected_model,
 		"messages": messages,

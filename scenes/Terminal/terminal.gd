@@ -14,11 +14,20 @@ var _flicker_timer: float = 0.0
 var _puzzle_solved: bool = false
 var _is_interacting: bool = false
 
+@export var warning_sound: AudioStream = preload("res://assets/audio/sfx/warning.wav")
+@export var warning_volume_db: float = 3.0
+
+const BGM_AMBIENT = preload("res://assets/audio/bgm/meditation_main.mp3")
+
+var _warning_audio: AudioStreamPlayer3D
+var _ambient_ducked: bool = false
+
 func _ready() -> void:
 	super._ready()
 	interact_label = "Gunakan Terminal"
 	StoryManager.wire_puzzle_completed.connect(_on_wire_puzzle_completed)
 	
+	_setup_warning_audio()
 	if GameManager.terminal_puzzle_done:
 		_puzzle_solved = true
 		omni_light_1.light_color = solved_color
@@ -31,6 +40,31 @@ func _ready() -> void:
 			col.set_deferred("disabled", true)
 	else:
 		_update_power_lights()
+
+func _setup_warning_audio() -> void:
+	_warning_audio = AudioStreamPlayer3D.new()
+	_warning_audio.name = "WarningAudio"
+
+	_warning_audio.stream = warning_sound
+	_warning_audio.volume_db = warning_volume_db
+	_warning_audio.max_distance = 20.0
+
+	if AudioServer.get_bus_index("SFX") != -1:
+		_warning_audio.bus = &"SFX"
+	else:
+		_warning_audio.bus = &"Master"
+
+	# Loop warning sound. AudioStreamWAV hasil impor tidak punya titik loop; kalau
+	# loop_mode diubah tanpa loop_begin/loop_end, stream dianggap loop 0..0 dan
+	# langsung selesai sehingga warning tak terdengar.
+	if warning_sound is AudioStreamWAV:
+		warning_sound.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		warning_sound.loop_begin = 0
+		var frames := int(round(warning_sound.get_length() * float(warning_sound.mix_rate)))
+		if frames > 0:
+			warning_sound.loop_end = frames
+
+	add_child(_warning_audio)
 
 func _ona_lever_done() -> bool:
 	return GameManager.solved_levers.get("OnaProgramRoom_Lever", false)
@@ -73,20 +107,46 @@ func interact() -> void:
 	_is_interacting = true
 	_play_terminal_emergency()
 
+func _play_warning_sound() -> void:
+	if _warning_audio and not _warning_audio.playing:
+		_warning_audio.play()
+
+# Matikan BGM + ambience selama alarm terminal agar warning terdengar jelas.
+func _enter_emergency_audio() -> void:
+	if _ambient_ducked:
+		return
+	_ambient_ducked = true
+	if AudioManager:
+		AudioManager.stop_bgm(1.0)
+		AudioManager.stop_ambience(1.0)
+
+# Nyalakan lagi BGM meditation setelah puzzle terminal selesai.
+func _restore_ambient_audio() -> void:
+	if not _ambient_ducked:
+		return
+	_ambient_ducked = false
+	if AudioManager:
+		AudioManager.play_bgm(BGM_AMBIENT, 1.5, -4.0)
+
 func _play_terminal_emergency() -> void:
 	if _puzzle_solved or GameManager.terminal_puzzle_done:
 		_is_interacting = false
 		return
 
-	# Efek kedip merah tipis menandakan kegawatan sumber listrik
+	_enter_emergency_audio()
+	_play_warning_sound()
+
 	var layer := CanvasLayer.new()
 	layer.layer = 110
+
 	var rect := ColorRect.new()
 	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	rect.color = Color(1.0, 0.1, 0.1, 0.0)
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 	layer.add_child(rect)
 	add_child(layer)
+
 	var flash := create_tween().set_loops(4)
 	flash.tween_property(rect, "color:a", 0.14, 0.25)
 	flash.tween_property(rect, "color:a", 0.0, 0.25)
@@ -117,6 +177,9 @@ func _on_wire_puzzle_completed(is_correct: bool) -> void:
 	if is_correct and not _puzzle_solved:
 		_puzzle_solved = true
 		_is_interacting = false
+		if _warning_audio and _warning_audio.playing:
+			_warning_audio.stop()
+		_restore_ambient_audio()
 		GameManager.terminal_puzzle_done = true
 		omni_light_1.light_color = solved_color
 		omni_light_1.light_energy = solved_energy

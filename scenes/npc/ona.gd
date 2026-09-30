@@ -20,6 +20,7 @@ var _cutscene_walking: bool = false
 
 func _ready():
 	add_to_group("ona")
+	add_to_group("npc")
 	_setup_animation_tree()
 
 	if fade_rect:
@@ -76,8 +77,58 @@ func _ready():
 			is_following_player = true
 		return
 
+	# Intro jalan sudah selesai -> Ona cukup diam di posisi tersimpan.
+	if GameManager and GameManager.ona_intro_done:
+		is_moving = false
+		is_dialogue = false
+		play_animation("idle")
+		var done_pos := GameManager.consume_ona_override()
+		if done_pos != Vector3.ZERO:
+			global_position = done_pos
+		else:
+			var pl := get_tree().get_first_node_in_group("player") as Node3D
+			if pl:
+				global_position = pl.global_position + Vector3(1.5, 0.1, 1.5)
+		return
+
+	# Scene dimuat dari save (Continue/Load) tapi intro belum selesai:
+	# lanjutkan jalan Ona dari waypoint terdekat, JANGAN ulang dari awal.
+	if GameManager and GameManager.skip_intro_on_load:
+		is_dialogue = false
+		play_animation("idle")
+		var resume_pos := GameManager.consume_ona_override()
+		if resume_pos != Vector3.ZERO:
+			global_position = resume_pos
+		else:
+			var pl2 := get_tree().get_first_node_in_group("player") as Node3D
+			if pl2:
+				global_position = pl2.global_position + Vector3(1.5, 0.1, 1.5)
+		var resume := GameManager.ona_resume_waypoint
+		if resume < 0:
+			resume = _nearest_waypoint_index()
+		current_waypoint = clampi(resume, 0, max(waypoints.size() - 1, 0))
+		is_moving = false
+		call_deferred("go_to_next_waypoint")
+		return
+
 	await get_tree().create_timer(5.0).timeout
 	go_to_next_waypoint()
+
+# Cari waypoint terdekat dengan posisi Ona sekarang. Kalau Ona sudah berada
+# hampir tepat di sebuah waypoint, lanjut ke waypoint berikutnya.
+func _nearest_waypoint_index() -> int:
+	var best := 0
+	var best_d := INF
+	for i in range(waypoints.size()):
+		if waypoints[i] == null:
+			continue
+		var d := global_position.distance_to(waypoints[i].global_position)
+		if d < best_d:
+			best_d = d
+			best = i
+	if best_d < 2.5 and best + 1 < waypoints.size():
+		return best + 1
+	return best
 	
 func _physics_process(_delta):
 	# Gravitasi agar Ona menapak tanah
@@ -209,6 +260,8 @@ func waypoint_reached():
 		velocity = Vector3.ZERO
 		play_animation("idle")
 		print("Ona telah sampai di Point 7 (Depan Konsol Batu)!")
+		if GameManager:
+			GameManager.ona_intro_done = true
 		_rotate_towards(Vector3(-1, 0, 0), 1.0, 50.0)
 		var rock_area = get_parent().find_child("RockArea", true, false)
 		if rock_area and rock_area.has_method("check_trigger"):
@@ -473,6 +526,20 @@ func teleport_to_point_8():
 
 	# Jalankan rangkaian peristiwa Point 8
 	await point_8_sequence()
+
+# Dipanggil saat load save ketika Rion sudah menyeberangi sungai:
+# Ona lanjut jalan ke Point 9 (tanpa mengulang dialog refleksi yang sudah lewat).
+func resume_after_river_crossing() -> void:
+	if is_following_player:
+		return
+	if current_waypoint >= 8:
+		return
+	if waypoints.size() > 8 and waypoints[8]:
+		is_dialogue = false
+		speed = 8.0
+		current_waypoint = 8
+		if not is_moving:
+			go_to_next_waypoint()
 
 func point_8_sequence() -> void:
 	is_dialogue = true

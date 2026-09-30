@@ -29,7 +29,6 @@ var spin_speed: float = 2.4 # rad/sec
 var shake_intensity: float = 0.0
 
 # Sound effects
-var sfx_alarm: AudioStream = null
 var sfx_success: AudioStream = null
 var audio_player: AudioStreamPlayer = null
 
@@ -43,10 +42,16 @@ func _setup_audio() -> void:
 	audio_player.bus = &"Master"
 	add_child(audio_player)
 	
-	if ResourceLoader.exists("res://assets/audio/sfx/warning.wav"):
-		sfx_alarm = load("res://assets/audio/sfx/warning.wav")
 	if ResourceLoader.exists("res://assets/audio/sfx/success.wav"):
 		sfx_success = load("res://assets/audio/sfx/success.wav")
+
+func start_warning_sfx() -> void:
+	if hologram_sprite and hologram_sprite.has_method("start_alarm"):
+		hologram_sprite.start_alarm()
+
+func stop_warning_sfx() -> void:
+	if hologram_sprite and hologram_sprite.has_method("stop_alarm"):
+		hologram_sprite.stop_alarm()
 
 func play_sfx(stream: AudioStream) -> void:
 	if stream and audio_player:
@@ -92,11 +97,6 @@ func _process(delta: float) -> void:
 			)
 			interior_camera.position = Vector3(0, 0.0888, -0.1102) + shake
 
-	# Hologram idle glow pulse
-	if hologram_sprite and hologram_sprite.visible:
-		var pulse = (sin(Time.get_ticks_msec() * 0.005) + 1.0) * 0.25 + 0.5
-		hologram_sprite.modulate.a = pulse
-
 func _start_scene_1() -> void:
 	current_stage = SceneStage.SCENE_1_WAKEUP
 	if animation_player and animation_player.has_animation("babak_1"):
@@ -108,7 +108,6 @@ func _start_scene_1() -> void:
 	var lines: Array[String] = [
 		"Rion: \"Aduh... pusing banget... Kepalaku rasanya berputar-putar...\"",
 		"Rion: \"Lho... aku di mana? Ini tempat apa? Kok tanganku gak bisa digerakkin?!\"",
-		"(Napasnya mulai agak cepat, rasa bingung dan takut mulai muncul)"
 	]
 	if dialogue_box:
 		dialogue_box.start(lines)
@@ -117,7 +116,7 @@ func _start_scene_2() -> void:
 	current_stage = SceneStage.SCENE_2_CHOICE
 	
 	# Alarm sound and emergency light effect
-	play_sfx(sfx_alarm)
+	start_warning_sfx()
 	_flash_emergency_tint(Color(0.8, 0.1, 0.1, 0.4), 0.8)
 	
 	# Turn hologram on brightly
@@ -126,8 +125,8 @@ func _start_scene_2() -> void:
 		hologram_sprite.modulate = Color(1.0, 0.3, 0.3, 1.0)
 	
 	var lines: Array[String] = [
-		"[SISTEM KAPSUL] PERINGATAN: TERDETEKSI GRAVITASI PLANET. SISTEM KEAMANAN DARURAT DIAKTIFKAN.",
-		"(Sistem otomatis membuka sabuk pengaman Rion karena situasi darurat. Layar hologram bercahaya muncul tepat di hadapan Rion, menampilkan pilihan kendali manual darurat.)"
+		"SISTEM KAPSUL: \"PERINGATAN: TERDETEKSI GRAVITASI PLANET. SISTEM KEAMANAN DARURAT DIAKTIFKAN.\"",
+		"SISTEM KAPSUL: \"Sistem otomatis membuka sabuk pengaman Rion karena situasi darurat. Layar hologram bercahaya muncul tepat di hadapan Rion, menampilkan pilihan kendali manual darurat.\""
 	]
 	if dialogue_box:
 		dialogue_box.start(lines)
@@ -183,6 +182,7 @@ func _start_scene_3() -> void:
 func _on_orbit_aligned() -> void:
 	# Successfully stabilized in orbit!
 	is_spinning = false
+	stop_warning_sfx()
 	play_sfx(sfx_success)
 	
 	# Smoothly decelerate rotation and align forward
@@ -203,9 +203,12 @@ func _on_orbit_aligned() -> void:
 func _on_align_failed() -> void:
 	# Capsule shakes on misfire
 	_flash_emergency_tint(Color(1.0, 0.2, 0.2, 0.3), 0.3)
+	if hologram_sprite and hologram_sprite.has_method("play_warning"):
+		hologram_sprite.play_warning()
 
 func _start_scene_4() -> void:
 	current_stage = SceneStage.SCENE_4_DESCENT
+	stop_warning_sfx()
 	
 	# Capsule surges forward into atmosphere
 	if interior_kapsul:
@@ -213,9 +216,8 @@ func _start_scene_4() -> void:
 		descent_tween.tween_property(interior_kapsul, "position:z", -150.0, 4.5)
 	
 	var lines: Array[String] = [
-		"(Kapsul berhasil stabil! Moncong kapsul mengarah lurus menembus awan warna-warni menuju daratan Hutan Jamur Kosmik)",
+		"Kapsul berhasil stabil! Moncong kapsul mengarah lurus menuju Hutan Jamur Kosmik di sebuah planet)",
 		"Rion: \"Waaaaah! Meluncurrrr! ...Huh... hah... tarikan gravitasinya berat banget!\"",
-		"(Rion menghela napas panjang, senyum kecil muncul di wajahnya)",
 		"Rion: \"Syukurlah... berhasil…\""
 	]
 	if dialogue_box:
@@ -223,6 +225,7 @@ func _start_scene_4() -> void:
 
 func _finish_prologue() -> void:
 	current_stage = SceneStage.COMPLETED
+	stop_warning_sfx()
 	
 	# Akhir scene gelap pekat tanpa teks apapun
 	var fade = CanvasLayer.new()
@@ -237,7 +240,10 @@ func _finish_prologue() -> void:
 	var tw = create_tween()
 	tw.tween_property(rect, "color:a", 1.0, 2.5)
 	await tw.finished
-	LoadingScreen.load_scene("res://LEV1.tscn")
+	if has_node("/root/LoadingScreen"):
+		get_node("/root/LoadingScreen").load_scene("res://LEV1.tscn")
+	else:
+		get_tree().change_scene_to_file("res://LEV1.tscn")
 
 func _on_dialogue_started() -> void:
 	# Hanya pause animasi saat dialog muncul setelah emergent & orbitalignment selesai (Scene 4 / Descent)

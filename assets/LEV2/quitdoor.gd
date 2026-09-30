@@ -1,9 +1,8 @@
 extends Area3D
-class_name DoorExit
 
 @export_file("*.tscn") var target_scene: String = "res://LEV1.tscn"
 @export var interact_distance: float = 6.0
-@export var door_label: String = "Press E to Exit"
+@export var door_label: String = "Klik E / Aksi untuk Keluar"
 
 var player: Node3D = null
 var _player_near: bool = false
@@ -81,6 +80,11 @@ func _try_interact() -> void:
 
 func _show_locked_notice() -> void:
 	if StoryManager == null or StoryManager.dialogue_box == null:
+		return
+	if not GameManager.unpacking_completed and GameManager.r1_morning_intro_done:
+		StoryManager.start_dialogue([
+			"Ona: \"Eh, Kapten Rion! Pintu keluar masih tertutup dan Tuan Rallux masih sibuk di kebun. Yuk, kita selesaikan beres-beres barang di rak dulu supaya kejutannya berhasil!\""
+		], "Ona")
 		return
 	StoryManager.start_dialogue([
 		"Rion: \"Pintu keluarnya masih terkunci. Sepertinya aku harus menyelesaikan semua tugas di bengkel dulu.\"",

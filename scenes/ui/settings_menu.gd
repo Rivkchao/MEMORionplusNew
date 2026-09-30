@@ -40,6 +40,12 @@ signal closed
 @onready var close_btn: Button = %CloseBtn
 @onready var panel_container: PanelContainer = %PanelContainer
 
+# Save Game (progres) References
+@onready var save_section: Control = %SaveSection
+@onready var save_game_btn: Button = %SaveGameBtn
+@onready var save_exit_btn: Button = %SaveExitBtn
+@onready var save_feedback: Label = %SaveFeedback
+
 const MOBILE_ELEMENTS: Array[Dictionary] = [
 	{"id": "joystick", "name": "🎮 Joystick (Analog)"},
 	{"id": "interact", "name": "✋ Tombol Aksi (Ambil / Interaksi)"},
@@ -133,7 +139,12 @@ func _connect_signals() -> void:
 	reset_btn.pressed.connect(_on_reset_pressed)
 	close_btn.pressed.connect(_on_close_pressed)
 
-	for btn in [save_btn, reset_btn, close_btn, reset_element_btn, reset_all_layout_btn]:
+	if save_game_btn:
+		save_game_btn.pressed.connect(_on_save_game_pressed)
+	if save_exit_btn:
+		save_exit_btn.pressed.connect(_on_save_exit_pressed)
+
+	for btn in [save_btn, reset_btn, close_btn, reset_element_btn, reset_all_layout_btn, save_game_btn, save_exit_btn]:
 		if btn:
 			btn.pivot_offset = btn.size / 2.0
 			btn.button_down.connect(func():
@@ -332,6 +343,57 @@ func _on_save_pressed() -> void:
 	SettingsManager.save_settings()
 	close()
 
+# ----------------------------------------------------
+# Simpan Permainan (manual save)
+# ----------------------------------------------------
+func _refresh_save_section() -> void:
+	var in_game: bool = SaveManager != null and SaveManager.is_in_game_level()
+	if save_section:
+		save_section.visible = in_game
+	if save_feedback == null:
+		return
+	if SaveManager != null and SaveManager.is_logged_in():
+		save_feedback.text = "Akun: %s" % SaveManager.current_username
+	else:
+		save_feedback.text = "Belum login - progres tidak bisa disimpan."
+
+func _set_save_feedback(text: String) -> void:
+	if save_feedback:
+		save_feedback.text = text
+
+func _on_save_game_pressed() -> void:
+	if AudioManager:
+		AudioManager.play_ui_confirm()
+	if SettingsManager:
+		SettingsManager.save_settings()
+	if SaveManager == null or not SaveManager.is_logged_in():
+		_set_save_feedback("Belum login.")
+		return
+	if not SaveManager.is_in_game_level():
+		_set_save_feedback("Tidak ada permainan aktif.")
+		return
+	_set_save_feedback("Menyimpan...")
+	if await SaveManager.save_slot(SaveManager.SLOT_MANUAL):
+		_set_save_feedback("Permainan tersimpan.")
+	else:
+		_set_save_feedback("Gagal menyimpan (cek koneksi/server).")
+
+func _on_save_exit_pressed() -> void:
+	if AudioManager:
+		AudioManager.play_ui_confirm()
+	if SettingsManager:
+		SettingsManager.save_settings()
+	if SaveManager != null and SaveManager.is_logged_in() and SaveManager.is_in_game_level():
+		_set_save_feedback("Menyimpan...")
+		await SaveManager.save_slot(SaveManager.SLOT_MANUAL, 4.0)
+	_set_save_feedback("Menyimpan & keluar...")
+	get_tree().paused = false
+	await get_tree().create_timer(0.35).timeout
+	if has_node("/root/LoadingScreen"):
+		LoadingScreen.load_scene("res://Menu/main_menu.tscn")
+	else:
+		get_tree().change_scene_to_file("res://Menu/main_menu.tscn")
+
 func _on_reset_pressed() -> void:
 	SettingsManager.reset_to_defaults()
 	_sync_from_manager()
@@ -383,6 +445,7 @@ func open() -> void:
 		get_tree().paused = true
 	
 	_sync_from_manager()
+	_refresh_save_section()
 	
 	# Aktifkan mode preview pada MobileControls untuk live editing
 	var mobile_node = _find_or_create_mobile_controls_preview()

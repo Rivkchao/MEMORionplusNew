@@ -79,6 +79,28 @@ func _restore_solved_state() -> void:
 	
 	_set_nav_link_enabled(true)
 
+	# Lanjutkan fase setelah puzzle batu (sempat hilang saat app ditutup).
+	call_deferred("_resume_after_load_if_needed")
+
+## Dipanggil setelah restore puzzle saat load save:
+## - belum menyeberang  -> aktifkan lagi fase penyeberangan (biar Ona lanjut).
+## - sudah menyeberang  -> suruh Ona lanjut jalan ke Point 9 (follow player).
+func _resume_after_load_if_needed() -> void:
+	if not GameManager.rock_puzzle_done:
+		return
+	_set_nav_link_enabled(true)
+
+	var root = get_tree().current_scene if get_tree() else null
+	if root == null and get_tree():
+		root = get_tree().root
+	var ona = root.find_child("Ona", true, false) if root else null
+
+	if GameManager.river_crossed:
+		if ona and ona.has_method("resume_after_river_crossing"):
+			ona.resume_after_river_crossing()
+	else:
+		start_river_crossing_phase()
+
 func _set_nav_link_enabled(link_enabled: bool) -> void:
 	var root = get_tree().current_scene if is_inside_tree() else null
 	if root == null and get_tree():
@@ -469,6 +491,7 @@ func is_dialogue_playing() -> bool:
 
 func _on_river_crossed_successfully() -> void:
 	print("Rion berhasil menyeberangi sungai!")
+	GameManager.river_crossed = true
 	var hud = get_tree().current_scene.find_child("HUD", true, false)
 	if hud and hud.has_method("set_objective"):
 		hud.set_objective("Temui Tuan Rallux di dalam Bengkel Laboratorium")

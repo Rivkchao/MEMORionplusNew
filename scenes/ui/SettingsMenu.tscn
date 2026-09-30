@@ -536,6 +536,45 @@ theme_override_font_sizes/font_size = 15
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 text = "↺ Reset Semua Tata Letak"
 
+[node name="SaveSection" type="VBoxContainer" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="SectionTitle" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/SaveSection"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_telegraf_reg")
+theme_override_font_sizes/font_size = 22
+text = "Simpan Permainan"
+
+[node name="SaveGameRow" type="HBoxContainer" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/SaveSection"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="SaveGameBtn" type="Button" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/SaveSection/SaveGameRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(170, 44)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_telegraf_reg")
+theme_override_font_sizes/font_size = 17
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
+text = "Simpan"
+
+[node name="SaveExitBtn" type="Button" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/SaveSection/SaveGameRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(230, 44)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_telegraf_reg")
+theme_override_font_sizes/font_size = 17
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_save")
+text = "Simpan & Keluar"
+
+[node name="SaveFeedback" type="Label" parent="CenterContainer/PanelContainer/VBoxContainer/ScrollContainer/ContentVBox/SaveSection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_telegraf_reg")
+theme_override_font_sizes/font_size = 15
+text = ""
+
 [node name="HSeparatorFooter" type="HSeparator" parent="CenterContainer/PanelContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_styles/separator = SubResource("StyleBoxLine_separator")

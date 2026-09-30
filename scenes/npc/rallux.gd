@@ -6,6 +6,8 @@ extends CharacterBody3D
 var _playback: AnimationNodeStateMachinePlayback = null
 
 func _ready() -> void:
+	add_to_group("npc")
+	add_to_group("rallux")
 	_setup_animation_tree()
 
 func _setup_animation_tree() -> void:

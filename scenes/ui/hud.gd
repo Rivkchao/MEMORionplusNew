@@ -165,9 +165,9 @@ func show_mission_complete_checklist() -> void:
 		progress_label.visible = false
 	_animate_objective_update()
 
-func set_progress(current: int, total: int, item_name: String = "bintang") -> void:
+func set_progress(current: int, total: int, item_name: String = "") -> void:
 	if progress_label:
-		if total <= 0 or item_name == "barang":
+		if total <= 0 or item_name == "barang" or item_name.strip_edges() == "":
 			progress_label.text = ""
 			progress_label.visible = false
 		else:
@@ -280,6 +280,36 @@ func _on_idle_reminder() -> void:
 	var task := objective_text.text.strip_edges()
 	if task.is_empty():
 		return
+	var speaker := _pick_reminder_speaker()
 	StoryManager.start_dialogue([
-		"Ona: \"Rion, apakah kamu baik-baik saja? Tugas kita sekarang adalah %s\"" % task
-	], "Ona")
+		"%s: \"Rion, apakah kamu baik-baik saja? Tugas kita sekarang adalah %s\"" % [speaker, task]
+	], speaker)
+
+# Tentukan siapa yang memberi peringatan AFK.
+# LEV1: selalu Ona. LEV2 dan seterusnya: NPC terdekat dengan posisi player.
+func _pick_reminder_speaker() -> String:
+	if _current_level_name() == "LEV1":
+		return "Ona"
+
+	var player := _cached_player as Node3D
+	if player == null or not is_instance_valid(player) or not player.is_inside_tree():
+		return "Ona"
+
+	var best_name := "Ona"
+	var best_dist := INF
+	for npc in get_tree().get_nodes_in_group("npc"):
+		if not (npc is Node3D) or not is_instance_valid(npc) or not npc.is_inside_tree():
+			continue
+		var d: float = player.global_position.distance_to((npc as Node3D).global_position)
+		if d < best_dist:
+			best_dist = d
+			best_name = String(npc.name)
+	return best_name
+
+func _current_level_name() -> String:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return ""
+	if not scene.scene_file_path.is_empty():
+		return scene.scene_file_path.get_file().get_basename()
+	return String(scene.name)

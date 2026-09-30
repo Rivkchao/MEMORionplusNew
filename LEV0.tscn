@@ -3,11 +3,13 @@
 [ext_resource type="Shader" uid="uid://kqksnkqnjdhw" path="res://assets/LEV0/new_shader_menu.gdshader" id="1_menu_shader"]
 [ext_resource type="Script" uid="uid://bd7e2o5cw51jv" path="res://assets/LEV0/mesh_instance_3d.gd" id="2_vrcdu"]
 [ext_resource type="PackedScene" uid="uid://cfr420e3wtn8" path="res://assets/LEV0/Cockpit/CockPit.tscn" id="4_qu7jx"]
+[ext_resource type="Script" uid="uid://sc6hiqkbqak" path="res://assets/LEV0/interior_kapsul.gd" id="4_sb6oa"]
 [ext_resource type="PackedScene" uid="uid://bc80q4vuxb6x3" path="res://assets/LEV0/ChairCockpit/Chair.tscn" id="6_vrcdu"]
-[ext_resource type="Texture2D" uid="uid://2o8obgrgfe8u" path="res://assets/UIWarning.png" id="6_ytw3e"]
+[ext_resource type="Texture2D" uid="uid://c0386mj8lc12k" path="res://assets/UIWarning.png" id="6_ytw3e"]
 [ext_resource type="PackedScene" uid="uid://bmxbnch8jh3rw" path="res://assets/LEV0/Asteroid/Asteroid.tscn" id="7_nw6ji"]
 [ext_resource type="Script" uid="uid://dbmemm04kd5ly" path="res://assets/LEV0/LEV0.gd" id="8_lev0"]
 [ext_resource type="PackedScene" uid="uid://dc4iqpnfqeuec" path="res://assets/LEV0/Planet/Planet.tscn" id="8_vrcdu"]
+[ext_resource type="Script" uid="uid://dm27dovnlj1a1" path="res://assets/LEV0/warning_sign.gd" id="9_warning_sign"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_t66vt"]
 
@@ -180,6 +182,7 @@ transform = Transform3D(-0.32564256, -0.20110697, -0.9238577, -0.45154282, 0.891
 sky_mode = 1
 
 [node name="InteriorKapsul" type="Node3D" parent="." unique_id=576691466]
+script = ExtResource("4_sb6oa")
 
 [node name="CockPit" parent="InteriorKapsul" unique_id=505944070 instance=ExtResource("4_qu7jx")]
 
@@ -202,6 +205,7 @@ color = Color(0.012617188, 0.012617188, 0.012617188, 1)
 [node name="Sprite3D" type="Sprite3D" parent="InteriorKapsul" unique_id=1675334887]
 transform = Transform3D(0.005, 0, 0, 0, 0.005, 0, 0, 0, 0.005, 0, 0.25941023, -0.30720124)
 texture = ExtResource("6_ytw3e")
+script = ExtResource("9_warning_sign")
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=772899441]
 libraries/ = SubResource("AnimationLibrary_4arys")
