@@ -325,4 +325,3 @@ func play_puzzle_solved(volume_db: float = 2.0) -> void:
 
 func play_glitch(volume_db: float = -4.0) -> void:
 	play_sfx(SFX_GLITCH, volume_db, 1.0)
-

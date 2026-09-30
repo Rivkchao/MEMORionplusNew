@@ -1,10 +1,6 @@
 extends Node
 
-## SaveManager — client REST API Memorion+ (Laravel).
-## Akun + auto-save (Continue) + manual save (Load Game) sekarang lewat HTTP.
-## Base URL bisa dioverride lewat user://api_config.cfg  ->  [api] base_url=...
-
-const DEFAULT_API_BASE_URL: String = "http://memorion-api.auto/api"
+const DEFAULT_API_BASE_URL: String = "https://memorionplus.web.id/api"
 const SESSION_PATH: String = "user://session.json"
 
 const SLOT_AUTO: String = "auto"

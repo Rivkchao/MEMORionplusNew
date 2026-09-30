@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://ctt1fmfvk63dd"
-path="res://.godot/imported/Jet.wav-0787e454a3498bd4b9b9f7c7966cd4e1.sample"
+path="res://.godot/imported/jet.wav-43dd78a3708f0d461299713fa7d545ae.sample"
 
 [deps]
 
-source_file="res://assets/audio/sfx/Jet.wav"
-dest_files=["res://.godot/imported/Jet.wav-0787e454a3498bd4b9b9f7c7966cd4e1.sample"]
+source_file="res://assets/audio/sfx/jet.wav"
+dest_files=["res://.godot/imported/jet.wav-43dd78a3708f0d461299713fa7d545ae.sample"]
 
 [params]
 
@@ -21,4 +21,4 @@ edit/normalize=false
 edit/loop_mode=0
 edit/loop_begin=0
 edit/loop_end=-1
-compress/mode=2
+compress/mode=0
